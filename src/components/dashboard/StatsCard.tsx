@@ -10,6 +10,7 @@ interface StatsCardProps {
   trend?: {
     value: number;
     label: string;
+    positive: boolean;
   };
   variant?: "default" | "success" | "warning" | "primary";
 }
@@ -25,43 +26,43 @@ export function StatsCard({
   const getVariantStyles = () => {
     switch (variant) {
       case "success":
-        return "border-success/20 bg-success/5";
+        return "border-green-200 bg-green-50";
       case "warning":
-        return "border-warning/20 bg-warning/5";
+        return "border-yellow-200 bg-yellow-50";
       case "primary":
-        return "border-primary/20 bg-primary/5";
+        return "border-blue-200 bg-blue-50";
       default:
-        return "";
+        return "border-gray-200 bg-gray-50";
     }
   };
 
   const getIconVariantStyles = () => {
     switch (variant) {
       case "success":
-        return "bg-success text-success-foreground";
+        return "bg-green-100 text-green-600";
       case "warning":
-        return "bg-warning text-warning-foreground";
+        return "bg-yellow-100 text-yellow-600";
       case "primary":
-        return "bg-primary text-primary-foreground";
+        return "bg-blue-100 text-blue-600";
       default:
-        return "bg-muted text-muted-foreground";
+        return "bg-gray-100 text-gray-600";
     }
   };
 
   return (
-    <Card className={cn("transition-shadow hover:shadow-md", getVariantStyles())}>
+    <Card className={cn("border-gray-200 hover:shadow-md transition-shadow", getVariantStyles())}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-sm font-medium text-gray-700">
           {title}
         </CardTitle>
-        <div className={cn("p-2 rounded-lg", getIconVariantStyles())}>
-          <Icon className="h-4 w-4" />
+        <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", getIconVariantStyles())}>
+          <Icon className="h-5 w-5" />
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold text-gray-900">{value}</div>
         {description && (
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-gray-600 mt-1">
             {description}
           </p>
         )}
@@ -69,11 +70,11 @@ export function StatsCard({
           <div className="flex items-center mt-2">
             <span className={cn(
               "text-xs font-medium",
-              trend.value > 0 ? "text-success" : "text-destructive"
+              trend.positive ? "text-green-600" : "text-red-600"
             )}>
-              {trend.value > 0 ? "+" : ""}{trend.value}%
+              {trend.positive ? "+" : ""}{trend.value}%
             </span>
-            <span className="text-xs text-muted-foreground ml-1">
+            <span className="text-xs text-gray-500 ml-1">
               {trend.label}
             </span>
           </div>
