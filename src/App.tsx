@@ -6,6 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
+import Transactions from "./pages/Transactions";
+import Analytics from "./pages/Analytics";
+import BotSettings from "./pages/BotSettings";
+import RewardSettings from "./pages/RewardSettings";
+import CMS from "./pages/CMS";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +27,12 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<Users />} />
+          <Route path="/transactions" element={<Transactions />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/bots/settings" element={<BotSettings />} />
+          <Route path="/rewards/settings" element={<RewardSettings />} />
+          <Route path="/cms" element={<CMS />} />
+          <Route path="/profile" element={<Profile />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
