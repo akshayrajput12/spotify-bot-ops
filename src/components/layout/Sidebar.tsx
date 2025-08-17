@@ -9,7 +9,8 @@ import {
   BarChart3, 
   FileText,
   LogOut,
-  User
+  User,
+  Shield
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -23,6 +24,11 @@ const sidebarItems = [
     title: "Users Management",
     href: "/users",
     icon: Users,
+  },
+  {
+    title: "KYC Management",
+    href: "/kyc",
+    icon: Shield,
   },
   {
     title: "Transactions",

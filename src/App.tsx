@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
+import KYC from "./pages/KYC";
 import Transactions from "./pages/Transactions";
 import Analytics from "./pages/Analytics";
 import BotSettings from "./pages/BotSettings";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<Users />} />
+          <Route path="/kyc" element={<KYC />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/bots/settings" element={<BotSettings />} />
