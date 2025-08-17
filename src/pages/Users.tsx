@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { UserDetailsModal } from "@/components/modals/UserDetailsModal";
+import { EditUserModal } from "@/components/modals/EditUserModal";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Table,
   TableBody,
@@ -27,7 +30,9 @@ import {
   Check, 
   X, 
   Edit,
-  MoreHorizontal 
+  MoreHorizontal,
+  UserPlus,
+  RefreshCw
 } from "lucide-react";
 
 // Mock data for users
@@ -85,8 +90,12 @@ const mockUsers = [
 ];
 
 export default function Users() {
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -109,6 +118,36 @@ export default function Users() {
     return matchesSearch && matchesStatus;
   });
 
+  const handleViewUser = (user: any) => {
+    setSelectedUser(user);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleEditUser = (user: any) => {
+    setSelectedUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  const handleApproveKYC = (userId: string) => {
+    toast({
+      title: "KYC Approved",
+      description: `User ${userId} KYC has been approved successfully.`,
+    });
+  };
+
+  const handleRejectKYC = (userId: string) => {
+    toast({
+      title: "KYC Rejected",
+      description: `User ${userId} KYC has been rejected.`,
+      variant: "destructive",
+    });
+  };
+
+  const handleSaveUser = (userData: any) => {
+    // In a real app, this would make an API call
+    console.log("Saving user data:", userData);
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -118,10 +157,20 @@ export default function Users() {
             <h1 className="text-3xl font-bold">Users Management</h1>
             <p className="text-muted-foreground">Manage user accounts, KYC approvals, and wallet balances</p>
           </div>
-          <Button>
-            <Download className="mr-2 h-4 w-4" />
-            Export Users
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+            <Button>
+              <Download className="mr-2 h-4 w-4" />
+              Export Users
+            </Button>
+          </div>
         </div>
 
         {/* Quick Stats */}
@@ -215,23 +264,49 @@ export default function Users() {
                       <TableCell className="text-sm">{user.lastLogin}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="icon">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleViewUser(user)}
+                            title="View Details"
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                           {user.kycStatus === "pending" && (
                             <>
-                              <Button variant="ghost" size="icon" className="text-success">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-success hover:bg-success/10"
+                                onClick={() => handleApproveKYC(user.id)}
+                                title="Approve KYC"
+                              >
                                 <Check className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="text-destructive">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-destructive hover:bg-destructive/10"
+                                onClick={() => handleRejectKYC(user.id)}
+                                title="Reject KYC"
+                              >
                                 <X className="h-4 w-4" />
                               </Button>
                             </>
                           )}
-                          <Button variant="ghost" size="icon">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleEditUser(user)}
+                            title="Edit User"
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            title="More Actions"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </div>
@@ -255,6 +330,23 @@ export default function Users() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modals */}
+      {selectedUser && (
+        <>
+          <UserDetailsModal
+            isOpen={isDetailsModalOpen}
+            onClose={() => setIsDetailsModalOpen(false)}
+            user={selectedUser}
+          />
+          <EditUserModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            user={selectedUser}
+            onSave={handleSaveUser}
+          />
+        </>
+      )}
     </AdminLayout>
   );
 }
