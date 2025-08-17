@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, Users, Clock, Target, Download, Calendar, AlertCircle } from "lucide-react";
+import { TrendingUp, Users, Clock, Target, Download, Calendar } from "lucide-react";
 import { useState } from "react";
 
 const playtimeData = [
@@ -46,13 +46,13 @@ export default function Analytics() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
-            <p className="text-gray-600 mt-1">Comprehensive insights into platform performance and user behavior</p>
+            <h1 className="text-3xl font-bold text-foreground">Analytics Dashboard</h1>
+            <p className="text-muted-foreground">Comprehensive insights into platform performance and user behavior</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-[150px] border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                <Calendar className="h-4 w-4 mr-2 text-gray-400" />
+              <SelectTrigger className="w-[150px]">
+                <Calendar className="h-4 w-4 mr-2" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -61,7 +61,7 @@ export default function Analytics() {
                 <SelectItem value="90d">Last 90 days</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" className="border-gray-300">
+            <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
               Export Report
             </Button>
@@ -70,53 +70,51 @@ export default function Analytics() {
 
         {/* KPI Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-gray-200 hover:shadow-md transition-shadow">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-700">Avg. Session Time</CardTitle>
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Clock className="h-5 w-5 text-blue-600" />
-              </div>
+              <CardTitle className="text-sm font-medium">Avg. Session Time</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">24.5 min</div>
-              <p className="text-xs text-gray-600 mt-1">
-                <span className="text-green-600 font-medium">+12%</span> from last period
+              <div className="text-2xl font-bold">24.5 min</div>
+              <p className="text-xs text-muted-foreground">
+                <span className="text-success">+12%</span> from last period
               </p>
             </CardContent>
           </Card>
-          <Card className="border-gray-200 hover:shadow-md transition-shadow">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-700">User Retention</CardTitle>
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Users className="h-5 w-5 text-green-600" />
-              </div>
+              <CardTitle className="text-sm font-medium">User Retention</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">87.2%</div>
-              <p className="text-xs text-gray-600 mt-1">
-                <span className="text-green-600 font-medium">+5.1%</span> from last period
+              <div className="text-2xl font-bold">87.2%</div>
+              <p className="text-xs text-muted-foreground">
+                <span className="text-success">+5.1%</span> from last period
               </p>
             </CardContent>
           </Card>
-          <Card className="border-gray-200 hover:shadow-md transition-shadow">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Bot Efficiency</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">94.8%</div>
-              <p className="text-xs text-gray-600 mt-1">
-                <span className="text-green-600 font-medium">+2.3%</span> from last period
+              <div className="text-2xl font-bold">94.8%</div>
+              <p className="text-xs text-muted-foreground">
+                <span className="text-success">+2.3%</span> from last period
               </p>
             </CardContent>
           </Card>
-          <Card className="border-gray-200 hover:shadow-md transition-shadow">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-700">Growth Rate</CardTitle>
-              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-orange-600" />
-              </div>
+              <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900">+15.3%</div>
-              <p className="text-xs text-gray-600 mt-1">
-                <span className="text-green-600 font-medium">+8.1%</span> from last period
+              <div className="text-2xl font-bold">+15.3%</div>
+              <p className="text-xs text-muted-foreground">
+                <span className="text-success">+8.1%</span> from last period
               </p>
             </CardContent>
           </Card>
@@ -124,13 +122,10 @@ export default function Analytics() {
 
         {/* Charts Grid */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-gray-200">
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-blue-600" />
-                Total Minutes Played
-              </CardTitle>
-              <CardDescription className="text-gray-600">Daily playtime trends over the selected period</CardDescription>
+          <Card>
+            <CardHeader>
+              <CardTitle>Total Minutes Played</CardTitle>
+              <CardDescription>Daily playtime trends over the selected period</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -145,13 +140,10 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          <Card className="border-gray-200">
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-green-600" />
-                User Distribution
-              </CardTitle>
-              <CardDescription className="text-gray-600">Premium vs Free users breakdown</CardDescription>
+          <Card>
+            <CardHeader>
+              <CardTitle>User Distribution</CardTitle>
+              <CardDescription>Premium vs Free users breakdown</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -174,13 +166,10 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          <Card className="border-gray-200">
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
-                Top Songs Played
-              </CardTitle>
-              <CardDescription className="text-gray-600">Most popular tracks on the platform</CardDescription>
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Songs Played</CardTitle>
+              <CardDescription>Most popular tracks on the platform</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -195,13 +184,10 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          <Card className="border-gray-200">
-            <CardHeader className="border-b border-gray-100">
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-orange-600" />
-                Points Earned
-              </CardTitle>
-              <CardDescription className="text-gray-600">Total points distributed to users</CardDescription>
+          <Card>
+            <CardHeader>
+              <CardTitle>Points Earned</CardTitle>
+              <CardDescription>Total points distributed to users</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
@@ -218,29 +204,26 @@ export default function Analytics() {
         </div>
 
         {/* Alert Thresholds */}
-        <Card className="border-gray-200">
-          <CardHeader className="border-b border-gray-100">
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
-              System Alerts
-            </CardTitle>
-            <CardDescription className="text-gray-600">Active notifications and threshold alerts</CardDescription>
+        <Card>
+          <CardHeader>
+            <CardTitle>System Alerts</CardTitle>
+            <CardDescription>Active notifications and threshold alerts</CardDescription>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-4 border border-red-200 rounded-lg bg-red-50">
+              <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Badge variant="destructive" className="bg-red-600">High Priority</Badge>
-                  <span className="text-gray-900">Unusual playtime spike detected for user ID: 12345</span>
+                  <Badge variant="destructive">High Priority</Badge>
+                  <span>Unusual playtime spike detected for user ID: 12345</span>
                 </div>
-                <Button variant="outline" size="sm" className="border-red-300 text-red-700 hover:bg-red-100">Investigate</Button>
+                <Button variant="ghost" size="sm">Investigate</Button>
               </div>
-              <div className="flex items-center justify-between p-4 border border-yellow-200 rounded-lg bg-yellow-50">
+              <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">Warning</Badge>
-                  <span className="text-gray-900">Bot efficiency dropped below 90% threshold</span>
+                  <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">Warning</Badge>
+                  <span>Bot efficiency dropped below 90% threshold</span>
                 </div>
-                <Button variant="outline" size="sm" className="border-yellow-300 text-yellow-700 hover:bg-yellow-100">Review</Button>
+                <Button variant="ghost" size="sm">Review</Button>
               </div>
             </div>
           </CardContent>

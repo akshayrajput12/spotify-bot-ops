@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, Filter, RefreshCw, CreditCard } from "lucide-react";
+import { Search, Download, Filter, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 const mockTransactions = [
@@ -44,15 +44,15 @@ export default function Transactions() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Transactions & Wallets</h1>
-            <p className="text-gray-600 mt-1">Monitor payments, wallets, and financial activities</p>
+            <h1 className="text-3xl font-bold text-foreground">Transactions & Wallets</h1>
+            <p className="text-muted-foreground">Monitor payments, wallets, and financial activities</p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" size="sm" className="border-gray-300">
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+            <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -60,34 +60,31 @@ export default function Transactions() {
         </div>
 
         <Tabs defaultValue="transactions" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-md bg-gray-100 p-1">
-            <TabsTrigger value="transactions" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Transactions</TabsTrigger>
-            <TabsTrigger value="wallets" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Wallet Balances</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+            <TabsTrigger value="wallets">Wallet Balances</TabsTrigger>
           </TabsList>
 
           <TabsContent value="transactions" className="space-y-4">
-            <Card className="border-gray-200">
-              <CardHeader className="border-b border-gray-100">
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-blue-600" />
-                  Transaction History
-                </CardTitle>
-                <CardDescription className="text-gray-600">All user transactions and payment activities</CardDescription>
+            <Card>
+              <CardHeader>
+                <CardTitle>Transaction History</CardTitle>
+                <CardDescription>All user transactions and payment activities</CardDescription>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent>
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search by user email, transaction ID..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      className="pl-10"
                     />
                   </div>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px] border-gray-300 focus:border-blue-500 focus:ring-blue-500">
-                      <Filter className="h-4 w-4 mr-2 text-gray-400" />
+                    <SelectTrigger className="w-[180px]">
+                      <Filter className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -99,22 +96,22 @@ export default function Transactions() {
                   </Select>
                 </div>
 
-                <div className="rounded-md border border-gray-200 overflow-hidden">
+                <div className="rounded-md border">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50 hover:bg-gray-50">
-                        <TableHead className="font-semibold text-gray-700">Transaction ID</TableHead>
-                        <TableHead className="font-semibold text-gray-700">User</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Amount</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Type</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Date</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                      <TableRow>
+                        <TableHead>Transaction ID</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {mockTransactions.map((transaction) => (
-                        <TableRow key={transaction.id} className="hover:bg-gray-50 transition-colors">
+                        <TableRow key={transaction.id}>
                           <TableCell className="font-mono">{transaction.id}</TableCell>
                           <TableCell>{transaction.user}</TableCell>
                           <TableCell className="font-medium">{transaction.amount}</TableCell>
@@ -134,29 +131,26 @@ export default function Transactions() {
           </TabsContent>
 
           <TabsContent value="wallets" className="space-y-4">
-            <Card className="border-gray-200">
-              <CardHeader className="border-b border-gray-100">
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-green-600" />
-                  User Wallet Balances
-                </CardTitle>
-                <CardDescription className="text-gray-600">Overview of user INR and points balances</CardDescription>
+            <Card>
+              <CardHeader>
+                <CardTitle>User Wallet Balances</CardTitle>
+                <CardDescription>Overview of user INR and points balances</CardDescription>
               </CardHeader>
-              <CardContent className="pt-4">
-                <div className="rounded-md border border-gray-200 overflow-hidden">
+              <CardContent>
+                <div className="rounded-md border">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50 hover:bg-gray-50">
-                        <TableHead className="font-semibold text-gray-700">User</TableHead>
-                        <TableHead className="font-semibold text-gray-700">INR Balance</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Points Balance</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Last Updated</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Actions</TableHead>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>INR Balance</TableHead>
+                        <TableHead>Points Balance</TableHead>
+                        <TableHead>Last Updated</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {mockWallets.map((wallet, index) => (
-                        <TableRow key={index} className="hover:bg-gray-50 transition-colors">
+                        <TableRow key={index}>
                           <TableCell>{wallet.user}</TableCell>
                           <TableCell className="font-medium text-success">{wallet.inrBalance}</TableCell>
                           <TableCell className="font-medium text-primary">{wallet.pointsBalance}</TableCell>
