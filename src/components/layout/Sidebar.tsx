@@ -10,7 +10,8 @@ import {
   FileText,
   LogOut,
   User,
-  Shield
+  Shield,
+  Music
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -29,6 +30,11 @@ const sidebarItems = [
     title: "KYC Management",
     href: "/kyc",
     icon: Shield,
+  },
+  {
+    title: "Playlists",
+    href: "/playlists",
+    icon: Music,
   },
   {
     title: "Transactions",

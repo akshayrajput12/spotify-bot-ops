@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/dashboard/StatsCard";
+import { PlaylistSection } from "@/components/dashboard/PlaylistSection";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { 
   Users, 
@@ -149,13 +150,16 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Music & Rewards Section */}
+        <PlaylistSection />
+
         {/* System Status */}
         <Card>
           <CardHeader>
             <CardTitle>System Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-5">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-success rounded-full"></div>
                 <span className="text-sm">API Status: Operational</span>
@@ -171,6 +175,10 @@ export default function Dashboard() {
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-success rounded-full"></div>
                 <span className="text-sm">Payment Gateway: Online</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-success rounded-full"></div>
+                <span className="text-sm">Spotify API: Connected</span>
               </div>
             </div>
           </CardContent>
