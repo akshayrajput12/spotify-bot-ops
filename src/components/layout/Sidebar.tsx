@@ -14,6 +14,7 @@ import {
   Music
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const sidebarItems = [
   {
@@ -66,6 +67,7 @@ const sidebarItems = [
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
 
   return (
     <div className="bg-admin-sidebar text-admin-sidebar-foreground w-64 min-h-screen flex flex-col border-r border-border shadow-sm">
@@ -104,8 +106,12 @@ export function Sidebar() {
             <User className="h-4 w-4 text-primary-foreground" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">Admin User</p>
-            <p className="text-xs text-muted-foreground">admin@spotify.com</p>
+            <p className="text-sm font-medium text-foreground">
+              {profile?.full_name || 'Admin User'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {profile?.email || 'admin@spotify.com'}
+            </p>
           </div>
         </div>
         <Button
@@ -119,7 +125,7 @@ export function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 h-10 text-admin-sidebar-foreground hover:bg-admin-sidebar-hover"
-          onClick={() => navigate("/login")}
+          onClick={signOut}
         >
           <LogOut className="h-4 w-4" />
           Logout

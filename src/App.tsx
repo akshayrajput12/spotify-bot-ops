@@ -3,7 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Login from "./pages/Login";
+import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import KYC from "./pages/KYC";
@@ -20,28 +22,100 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/users" element={<Users />} />
-          <Route path="/kyc" element={<KYC />} />
-          <Route path="/playlists" element={<Playlists />} />
-          <Route path="/transactions" element={<Transactions />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/bots/settings" element={<BotSettings />} />
-          <Route path="/rewards/settings" element={<RewardSettings />} />
-          <Route path="/cms" element={<CMS />} />
-          <Route path="/profile" element={<Profile />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Auth />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/users" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Users />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/kyc" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <KYC />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/playlists" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Playlists />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/transactions" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Transactions />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/analytics" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Analytics />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/bots/settings" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <BotSettings />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/rewards/settings" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <RewardSettings />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/cms" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <CMS />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+            />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
