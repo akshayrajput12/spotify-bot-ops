@@ -2,39 +2,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Music, Play, Users, TrendingUp, Clock, Plus } from "lucide-react";
+import { Music, Play, Users, TrendingUp, Clock, Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-interface PlaylistStats {
-  totalPlaylists: number;
-  activePlaylists: number;
-  totalListeningHours: number;
-  activeListeners: number;
-  pointsDistributed: number;
-}
-
-interface TopPlaylist {
-  id: string;
-  name: string;
-  image_url: string;
-  listeners: number;
-  totalTime: number;
-  pointsEarned: number;
-}
+import { usePlaylistStats, useRecentActivities } from "@/hooks/useDatabase";
 
 export function PlaylistSection() {
   const navigate = useNavigate();
-
-  // Mock data for demonstration
-  const stats: PlaylistStats = {
-    totalPlaylists: 12,
-    activePlaylists: 8,
-    totalListeningHours: 2847,
-    activeListeners: 1243,
-    pointsDistributed: 45620
-  };
-
-  const topPlaylists: TopPlaylist[] = [
+  const { data: playlistStats, loading: statsLoading } = usePlaylistStats();
+  const { data: recentActivities, loading: activitiesLoading } = useRecentActivities();
+  
+  // Mock top playlists data - in a real app, this would come from the database
+  // This would be another hook like useTopPlaylists()
+  const topPlaylists = [
     {
       id: "1",
       name: "Today's Top Hits",
@@ -59,13 +38,6 @@ export function PlaylistSection() {
       totalTime: 1456,
       pointsEarned: 7834
     }
-  ];
-
-  const recentActivity = [
-    { user: "user@example.com", playlist: "Today's Top Hits", points: 25, time: "2 min ago" },
-    { user: "john.doe@example.com", playlist: "RapCaviar", points: 18, time: "5 min ago" },
-    { user: "jane.smith@example.com", playlist: "Chill Vibes", points: 32, time: "8 min ago" },
-    { user: "mike.wilson@example.com", playlist: "Today's Top Hits", points: 15, time: "12 min ago" },
   ];
 
   const formatTime = (minutes: number) => {
@@ -97,7 +69,9 @@ export function PlaylistSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Playlists</p>
-                <p className="text-xl font-bold">{stats.totalPlaylists}</p>
+                <p className="text-xl font-bold">
+                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : playlistStats?.totalPlaylists || 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -111,7 +85,9 @@ export function PlaylistSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Active Playlists</p>
-                <p className="text-xl font-bold">{stats.activePlaylists}</p>
+                <p className="text-xl font-bold">
+                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : playlistStats?.activePlaylists || 0}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -125,7 +101,9 @@ export function PlaylistSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Listening Hours</p>
-                <p className="text-xl font-bold">{stats.totalListeningHours.toLocaleString()}</p>
+                <p className="text-xl font-bold">
+                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (playlistStats?.totalListeningHours || 0).toLocaleString()}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -139,7 +117,9 @@ export function PlaylistSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Active Listeners</p>
-                <p className="text-xl font-bold">{stats.activeListeners.toLocaleString()}</p>
+                <p className="text-xl font-bold">
+                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (playlistStats?.activeListeners || 0).toLocaleString()}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -153,7 +133,9 @@ export function PlaylistSection() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Points Distributed</p>
-                <p className="text-xl font-bold">{stats.pointsDistributed.toLocaleString()}</p>
+                <p className="text-xl font-bold">
+                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (playlistStats?.pointsDistributed || 0).toLocaleString()}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -213,23 +195,33 @@ export function PlaylistSection() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-center justify-between py-2">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 rounded-full bg-success" />
-                  <div>
-                    <p className="text-sm font-medium">{activity.user}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Listened to "{activity.playlist}"
-                    </p>
+            {activitiesLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : recentActivities && recentActivities.length > 0 ? (
+              recentActivities.slice(0, 4).map((activity, index) => (
+                <div key={index} className="flex items-center justify-between py-2">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    <div>
+                      <p className="text-sm font-medium">{activity.user}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.action}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-medium text-success">Activity</div>
+                    <div className="text-xs text-muted-foreground">{activity.time}</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs font-medium text-success">+{activity.points} pts</div>
-                  <div className="text-xs text-muted-foreground">{activity.time}</div>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No recent activity
+              </p>
+            )}
             <Button variant="outline" className="w-full" onClick={() => navigate('/analytics')}>
               View Analytics
             </Button>

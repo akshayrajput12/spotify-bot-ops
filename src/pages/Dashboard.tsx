@@ -3,6 +3,12 @@ import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { PlaylistSection } from "@/components/dashboard/PlaylistSection";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { useAuth } from "@/hooks/useAuth";
+import { 
+  useDashboardStats, 
+  useRecentActivities, 
+  useSystemStatus 
+} from "@/hooks/useDatabase";
 import { 
   Users, 
   CreditCard, 
@@ -11,14 +17,23 @@ import {
   TrendingUp,
   AlertCircle,
   Clock,
-  DollarSign
+  DollarSign,
+  Loader2
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
-  const stats = [
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { data: dashboardStats, loading: statsLoading } = useDashboardStats();
+  const { data: recentActivities, loading: activitiesLoading } = useRecentActivities();
+  const { data: systemStatus, loading: statusLoading } = useSystemStatus();
+
+  // Format stats for display with dynamic data
+  const stats = dashboardStats ? [
     {
       title: "Total Users",
-      value: "12,483",
+      value: dashboardStats.totalUsers.toLocaleString(),
       description: "Active platform users",
       icon: Users,
       trend: { value: 12.5, label: "from last month" },
@@ -26,7 +41,7 @@ export default function Dashboard() {
     },
     {
       title: "Pending KYC",
-      value: "23",
+      value: dashboardStats.pendingKyc.toString(),
       description: "Require approval",
       icon: AlertCircle,
       trend: { value: -8.2, label: "from yesterday" },
@@ -34,7 +49,7 @@ export default function Dashboard() {
     },
     {
       title: "Total Transactions",
-      value: "₹4,67,892",
+      value: `₹${dashboardStats.totalTransactionAmount.toLocaleString()}`,
       description: "This month",
       icon: CreditCard,
       trend: { value: 23.1, label: "from last month" },
@@ -42,7 +57,7 @@ export default function Dashboard() {
     },
     {
       title: "Active Bots",
-      value: "1,247",
+      value: dashboardStats.activeBots.toString(),
       description: "Currently running",
       icon: Bot,
       trend: { value: 5.4, label: "from last hour" },
@@ -50,7 +65,7 @@ export default function Dashboard() {
     },
     {
       title: "Rewards Distributed",
-      value: "89,450",
+      value: dashboardStats.totalRewards.toLocaleString(),
       description: "Points this week",
       icon: Trophy,
       trend: { value: 15.3, label: "from last week" },
@@ -58,21 +73,24 @@ export default function Dashboard() {
     },
     {
       title: "Avg Session Time",
-      value: "47m",
+      value: `${dashboardStats.avgSessionTime}m`,
       description: "Per user session",
       icon: Clock,
       trend: { value: 8.7, label: "from last week" },
       variant: "default" as const
     }
-  ];
+  ] : [];
 
-  const recentActivities = [
-    { user: "user@email.com", action: "KYC Approved", time: "2 minutes ago", type: "success" },
-    { user: "john.doe@email.com", action: "Transaction Completed", time: "5 minutes ago", type: "default" },
-    { user: "jane.smith@email.com", action: "KYC Submitted", time: "12 minutes ago", type: "warning" },
-    { user: "mike.wilson@email.com", action: "Bot Session Started", time: "18 minutes ago", type: "default" },
-    { user: "sarah.connor@email.com", action: "Reward Claimed", time: "25 minutes ago", type: "success" },
-  ];
+  // Loading state
+  if (statsLoading || activitiesLoading || statusLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -81,9 +99,14 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-muted-foreground">Welcome back! Here's what's happening with your platform.</p>
+            <p className="text-muted-foreground">
+              Welcome back{profile?.full_name ? `, ${profile.full_name}` : ''}! Here's what's happening with your platform.
+            </p>
           </div>
-          <Button className="bg-gradient-to-r from-primary to-primary-light">
+          <Button 
+            className="bg-gradient-to-r from-primary to-primary-light"
+            onClick={() => navigate('/analytics')}
+          >
             <TrendingUp className="mr-2 h-4 w-4" />
             View Analytics
           </Button>
@@ -105,21 +128,28 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between py-2">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-2 h-2 rounded-full ${
-                        activity.type === 'success' ? 'bg-success' : 
-                        activity.type === 'warning' ? 'bg-warning' : 'bg-muted-foreground'
-                      }`} />
-                      <div>
-                        <p className="text-sm font-medium">{activity.action}</p>
-                        <p className="text-xs text-muted-foreground">{activity.user}</p>
+                {recentActivities && recentActivities.length > 0 ? (
+                  recentActivities.map((activity, index) => (
+                    <div key={index} className="flex items-center justify-between py-2">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-2 h-2 rounded-full ${
+                          activity.type === 'success' ? 'bg-success' : 
+                          activity.type === 'warning' ? 'bg-warning' : 
+                          activity.type === 'error' ? 'bg-destructive' : 'bg-muted-foreground'
+                        }`} />
+                        <div>
+                          <p className="text-sm font-medium">{activity.action}</p>
+                          <p className="text-xs text-muted-foreground">{activity.user}</p>
+                        </div>
                       </div>
+                      <span className="text-xs text-muted-foreground">{activity.time}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">{activity.time}</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No recent activities
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -130,19 +160,35 @@ export default function Dashboard() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => navigate('/kyc')}
+              >
                 <Users className="mr-2 h-4 w-4" />
-                Approve Pending KYC (23)
+                Approve Pending KYC ({dashboardStats?.pendingKyc || 0})
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => navigate('/bots/settings')}
+              >
                 <Bot className="mr-2 h-4 w-4" />
                 Configure Bot Settings
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => navigate('/rewards/settings')}
+              >
                 <Trophy className="mr-2 h-4 w-4" />
                 Update Reward Settings
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => navigate('/transactions')}
+              >
                 <DollarSign className="mr-2 h-4 w-4" />
                 Review Transactions
               </Button>
@@ -161,24 +207,39 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-5">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-success rounded-full"></div>
-                <span className="text-sm">API Status: Operational</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  systemStatus?.api === 'operational' ? 'bg-success' : 
+                  systemStatus?.api === 'issues' ? 'bg-warning' : 'bg-destructive'
+                }`}></div>
+                <span className="text-sm">API Status: {systemStatus?.api || 'Unknown'}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-success rounded-full"></div>
-                <span className="text-sm">Database: Healthy</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  systemStatus?.database === 'healthy' ? 'bg-success' : 
+                  systemStatus?.database === 'issues' ? 'bg-warning' : 'bg-destructive'
+                }`}></div>
+                <span className="text-sm">Database: {systemStatus?.database || 'Unknown'}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-warning rounded-full"></div>
-                <span className="text-sm">Bot Engine: Busy</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  systemStatus?.botEngine === 'active' ? 'bg-success' : 
+                  systemStatus?.botEngine === 'idle' ? 'bg-warning' : 'bg-destructive'
+                }`}></div>
+                <span className="text-sm">Bot Engine: {systemStatus?.botEngine || 'Unknown'}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-success rounded-full"></div>
-                <span className="text-sm">Payment Gateway: Online</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  systemStatus?.paymentGateway === 'online' ? 'bg-success' : 
+                  systemStatus?.paymentGateway === 'issues' ? 'bg-warning' : 'bg-destructive'
+                }`}></div>
+                <span className="text-sm">Payment Gateway: {systemStatus?.paymentGateway || 'Unknown'}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-success rounded-full"></div>
-                <span className="text-sm">Spotify API: Connected</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  systemStatus?.spotifyApi === 'connected' ? 'bg-success' : 
+                  systemStatus?.spotifyApi === 'issues' ? 'bg-warning' : 'bg-destructive'
+                }`}></div>
+                <span className="text-sm">Spotify API: {systemStatus?.spotifyApi || 'Unknown'}</span>
               </div>
             </div>
           </CardContent>

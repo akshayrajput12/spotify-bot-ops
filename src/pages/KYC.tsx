@@ -37,137 +37,39 @@ import {
   RefreshCw,
   AlertTriangle,
   ImageIcon,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from "lucide-react";
-
-// Mock KYC data
-const mockKYCData = [
-  {
-    id: "KYC001",
-    userId: "USR001",
-    userName: "John Doe",
-    userEmail: "john.doe@email.com",
-    documentType: "Aadhaar Card",
-    documentNumber: "XXXX-XXXX-1234",
-    status: "pending",
-    submittedDate: "2024-08-15",
-    reviewedDate: null,
-    reviewedBy: null,
-    rejectionReason: null,
-    documents: {
-      front: "/placeholder.svg",
-      back: "/placeholder.svg",
-      selfie: "/placeholder.svg"
-    },
-    userDetails: {
-      phone: "+91-9876543210",
-      dateOfBirth: "1990-05-15",
-      address: "123 Main Street, Mumbai, Maharashtra"
-    }
-  },
-  {
-    id: "KYC002", 
-    userId: "USR002",
-    userName: "Jane Smith",
-    userEmail: "jane.smith@email.com",
-    documentType: "PAN Card",
-    documentNumber: "ABCDE1234F",
-    status: "approved",
-    submittedDate: "2024-08-10",
-    reviewedDate: "2024-08-12",
-    reviewedBy: "Admin User",
-    rejectionReason: null,
-    documents: {
-      front: "/placeholder.svg",
-      back: "/placeholder.svg",
-      selfie: "/placeholder.svg"
-    },
-    userDetails: {
-      phone: "+91-9876543211",
-      dateOfBirth: "1988-12-20",
-      address: "456 Park Avenue, Delhi, India"
-    }
-  },
-  {
-    id: "KYC003",
-    userId: "USR003", 
-    userName: "Mike Wilson",
-    userEmail: "mike.wilson@email.com",
-    documentType: "Driving License",
-    documentNumber: "DL-12-2024-0001234",
-    status: "rejected",
-    submittedDate: "2024-08-08",
-    reviewedDate: "2024-08-09",
-    reviewedBy: "Admin User",
-    rejectionReason: "Document image is unclear and unreadable",
-    documents: {
-      front: "/placeholder.svg",
-      back: "/placeholder.svg", 
-      selfie: "/placeholder.svg"
-    },
-    userDetails: {
-      phone: "+91-9876543212",
-      dateOfBirth: "1992-03-10",
-      address: "789 Tech Park, Bangalore, Karnataka"
-    }
-  },
-  {
-    id: "KYC004",
-    userId: "USR004",
-    userName: "Sarah Connor",
-    userEmail: "sarah.connor@email.com",
-    documentType: "Passport",
-    documentNumber: "A1234567",
-    status: "under_review",
-    submittedDate: "2024-08-14",
-    reviewedDate: null,
-    reviewedBy: null,
-    rejectionReason: null,
-    documents: {
-      front: "/placeholder.svg",
-      back: "/placeholder.svg",
-      selfie: "/placeholder.svg"
-    },
-    userDetails: {
-      phone: "+91-9876543213",
-      dateOfBirth: "1985-07-22",
-      address: "321 Ocean Drive, Chennai, Tamil Nadu"
-    }
-  },
-  {
-    id: "KYC005",
-    userId: "USR005",
-    userName: "David Lee",
-    userEmail: "david.lee@email.com",
-    documentType: "Aadhaar Card", 
-    documentNumber: "XXXX-XXXX-9012",
-    status: "pending",
-    submittedDate: "2024-08-16",
-    reviewedDate: null,
-    reviewedBy: null,
-    rejectionReason: null,
-    documents: {
-      front: "/placeholder.svg",
-      back: "/placeholder.svg",
-      selfie: "/placeholder.svg"
-    },
-    userDetails: {
-      phone: "+91-9876543214",
-      dateOfBirth: "1991-11-30", 
-      address: "654 IT Hub, Pune, Maharashtra"
-    }
-  }
-];
+import {
+  useKYCDocuments,
+  useKYCStats,
+  useKYCActions,
+  useSearchAndFilter,
+  usePagination
+} from "@/hooks/useDatabase";
 
 export default function KYC() {
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedKYC, setSelectedKYC] = useState<any>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  
+  // Search and filter state
+  const { search, setSearch, debouncedSearch, filters, updateFilter } = useSearchAndFilter();
+  const { page, limit, offset, nextPage, prevPage } = usePagination();
+  
+  // Data fetching
+  const { data: kycDocuments, loading: kycLoading, refetch: refetchKYC } = useKYCDocuments({
+    search: debouncedSearch,
+    status: filters.status,
+    limit,
+    offset
+  });
+  
+  const { data: kycStats, loading: statsLoading } = useKYCStats();
+  const { updateKYCStatus, approveKYC, rejectKYC, loading: actionLoading } = useKYCActions();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -184,43 +86,24 @@ export default function KYC() {
     }
   };
 
-  const filteredKYCs = mockKYCData.filter(kyc => {
-    const matchesSearch = kyc.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         kyc.userEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         kyc.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         kyc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || kyc.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
   const handleViewKYC = (kyc: any) => {
     setSelectedKYC(kyc);
     setIsDetailsModalOpen(true);
   };
 
-  const handleApproveKYC = (kycId: string) => {
-    toast({
-      title: "KYC Approved",
-      description: `KYC ${kycId} has been approved successfully.`,
-    });
+  const handleApproveKYC = async (kycId: string) => {
+    const success = await approveKYC(kycId);
+    if (success) {
+      refetchKYC();
+    }
   };
 
-  const handleRejectKYC = (kycId: string) => {
-    if (!rejectionReason.trim()) {
-      toast({
-        title: "Rejection Reason Required",
-        description: "Please provide a reason for rejection.",
-        variant: "destructive",
-      });
-      return;
+  const handleRejectKYC = async (kycId: string) => {
+    const success = await rejectKYC(kycId, rejectionReason);
+    if (success) {
+      setRejectionReason("");
+      refetchKYC();
     }
-    
-    toast({
-      title: "KYC Rejected",
-      description: `KYC ${kycId} has been rejected.`,
-      variant: "destructive",
-    });
-    setRejectionReason("");
   };
 
   const handleImageView = (imageUrl: string) => {
@@ -228,10 +111,16 @@ export default function KYC() {
     setIsImageModalOpen(true);
   };
 
-  const pendingCount = mockKYCData.filter(k => k.status === "pending").length;
-  const underReviewCount = mockKYCData.filter(k => k.status === "under_review").length;
-  const approvedCount = mockKYCData.filter(k => k.status === "approved").length;
-  const rejectedCount = mockKYCData.filter(k => k.status === "rejected").length;
+  const handleRefresh = () => {
+    refetchKYC();
+  };
+
+  const handleExportKYC = () => {
+    toast({
+      title: "Export Started",
+      description: "KYC data export will be available shortly.",
+    });
+  };
 
   return (
     <AdminLayout>
@@ -243,11 +132,11 @@ export default function KYC() {
             <p className="text-muted-foreground">Review and manage user KYC verification documents</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={kycLoading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${kycLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button>
+            <Button onClick={handleExportKYC}>
               <Download className="mr-2 h-4 w-4" />
               Export KYC Data
             </Button>
@@ -258,25 +147,33 @@ export default function KYC() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-warning">{pendingCount}</div>
+              <div className="text-2xl font-bold text-warning">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kycStats?.pendingCount || 0}
+              </div>
               <p className="text-sm text-muted-foreground">Pending Review</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-primary">{underReviewCount}</div>
+              <div className="text-2xl font-bold text-primary">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kycStats?.underReviewCount || 0}
+              </div>
               <p className="text-sm text-muted-foreground">Under Review</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-success">{approvedCount}</div>
+              <div className="text-2xl font-bold text-success">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kycStats?.approvedCount || 0}
+              </div>
               <p className="text-sm text-muted-foreground">Approved</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-destructive">{rejectedCount}</div>
+              <div className="text-2xl font-bold text-destructive">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kycStats?.rejectedCount || 0}
+              </div>
               <p className="text-sm text-muted-foreground">Rejected</p>
             </CardContent>
           </Card>
@@ -294,13 +191,13 @@ export default function KYC() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by name, email, KYC ID, or document number..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                     className="pl-10"
                   />
                 </div>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={filters.status || 'all'} onValueChange={(value) => updateFilter('status', value)}>
                 <SelectTrigger className="w-48">
                   <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Filter by status" />
@@ -330,84 +227,101 @@ export default function KYC() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredKYCs.map((kyc) => (
-                    <TableRow key={kyc.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src="/placeholder.svg" />
-                            <AvatarFallback>{kyc.userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{kyc.userName}</div>
-                            <div className="text-sm text-muted-foreground">{kyc.userEmail}</div>
-                            <div className="text-xs text-muted-foreground">{kyc.id}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          {kyc.documentType}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{kyc.documentNumber}</TableCell>
-                      <TableCell>{getStatusBadge(kyc.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {kyc.submittedDate}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {kyc.reviewedBy ? (
-                          <div className="text-sm">
-                            <div>{kyc.reviewedBy}</div>
-                            <div className="text-muted-foreground text-xs flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {kyc.reviewedDate}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Not reviewed</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleViewKYC(kyc)}
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {(kyc.status === "pending" || kyc.status === "under_review") && (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-success hover:bg-success/10"
-                                onClick={() => handleApproveKYC(kyc.id)}
-                                title="Approve KYC"
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-destructive hover:bg-destructive/10"
-                                onClick={() => handleRejectKYC(kyc.id)}
-                                title="Reject KYC"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                  {kycLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                        <p className="mt-2 text-muted-foreground">Loading KYC documents...</p>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : kycDocuments && kycDocuments.length > 0 ? (
+                    kycDocuments.map((kyc) => (
+                      <TableRow key={kyc.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src="/placeholder.svg" />
+                              <AvatarFallback>{kyc.userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{kyc.userName}</div>
+                              <div className="text-sm text-muted-foreground">{kyc.userEmail}</div>
+                              <div className="text-xs text-muted-foreground">{kyc.id}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            {kyc.documentType}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{kyc.documentNumber}</TableCell>
+                        <TableCell>{getStatusBadge(kyc.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {kyc.submittedDate}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {kyc.reviewedBy ? (
+                            <div className="text-sm">
+                              <div>{kyc.reviewedBy}</div>
+                              <div className="text-muted-foreground text-xs flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {kyc.reviewedDate}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Not reviewed</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleViewKYC(kyc)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {(kyc.status === "pending" || kyc.status === "under_review") && (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-success hover:bg-success/10"
+                                  onClick={() => handleApproveKYC(kyc.id)}
+                                  title="Approve KYC"
+                                  disabled={actionLoading}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleRejectKYC(kyc.id)}
+                                  title="Reject KYC"
+                                  disabled={actionLoading}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <p className="text-muted-foreground">No KYC submissions found</p>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -415,11 +329,15 @@ export default function KYC() {
             {/* Pagination */}
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
-                Showing {filteredKYCs.length} of {mockKYCData.length} KYC submissions
+                Showing {kycDocuments?.length || 0} KYC submissions {search && `matching "${search}"`}
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">Previous</Button>
-                <Button variant="outline" size="sm">Next</Button>
+                <Button variant="outline" size="sm" onClick={prevPage} disabled={page === 1}>
+                  Previous
+                </Button>
+                <Button variant="outline" size="sm" onClick={nextPage} disabled={!kycDocuments || kycDocuments.length < limit}>
+                  Next
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -581,7 +499,11 @@ export default function KYC() {
                     <div className="flex gap-4">
                       <Button 
                         className="flex-1"
-                        onClick={() => handleApproveKYC(selectedKYC.id)}
+                        onClick={() => {
+                          handleApproveKYC(selectedKYC.id);
+                          setIsDetailsModalOpen(false);
+                        }}
+                        disabled={actionLoading}
                       >
                         <Check className="mr-2 h-4 w-4" />
                         Approve KYC
@@ -589,7 +511,11 @@ export default function KYC() {
                       <Button 
                         variant="destructive"
                         className="flex-1"
-                        onClick={() => handleRejectKYC(selectedKYC.id)}
+                        onClick={() => {
+                          handleRejectKYC(selectedKYC.id);
+                          setIsDetailsModalOpen(false);
+                        }}
+                        disabled={actionLoading || !rejectionReason.trim()}
                       >
                         <X className="mr-2 h-4 w-4" />
                         Reject KYC

@@ -8,6 +8,13 @@ import { UserDetailsModal } from "@/components/modals/UserDetailsModal";
 import { EditUserModal } from "@/components/modals/EditUserModal";
 import { useToast } from "@/hooks/use-toast";
 import { 
+  useUsers, 
+  useUserStats, 
+  useUserActions,
+  useSearchAndFilter,
+  usePagination
+} from "@/hooks/useDatabase";
+import { 
   Table,
   TableBody,
   TableCell,
@@ -32,91 +39,43 @@ import {
   Edit,
   MoreHorizontal,
   UserPlus,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from "lucide-react";
-
-// Mock data for users
-const mockUsers = [
-  {
-    id: "USR001",
-    name: "John Doe",
-    email: "john.doe@email.com",
-    joinDate: "2024-01-15",
-    kycStatus: "approved" as const,
-    walletBalance: 2450.00,
-    lastLogin: "2024-08-15 14:30",
-    totalPlaytime: "127h 45m"
-  },
-  {
-    id: "USR002", 
-    name: "Jane Smith",
-    email: "jane.smith@email.com",
-    joinDate: "2024-02-20",
-    kycStatus: "pending" as const,
-    walletBalance: 890.50,
-    lastLogin: "2024-08-14 09:15",
-    totalPlaytime: "89h 20m"
-  },
-  {
-    id: "USR003",
-    name: "Mike Wilson",
-    email: "mike.wilson@email.com", 
-    joinDate: "2024-03-10",
-    kycStatus: "rejected" as const,
-    walletBalance: 0.00,
-    lastLogin: "2024-08-13 16:45",
-    totalPlaytime: "45h 10m"
-  },
-  {
-    id: "USR004",
-    name: "Sarah Connor",
-    email: "sarah.connor@email.com",
-    joinDate: "2024-04-05",
-    kycStatus: "approved" as const,
-    walletBalance: 1250.75,
-    lastLogin: "2024-08-15 11:20",
-    totalPlaytime: "203h 15m"
-  },
-  {
-    id: "USR005",
-    name: "David Lee",
-    email: "david.lee@email.com",
-    joinDate: "2024-05-12",
-    kycStatus: "pending" as const,
-    walletBalance: 675.25,
-    lastLogin: "2024-08-15 08:30",
-    totalPlaytime: "67h 50m"
-  }
-];
 
 export default function Users() {
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  // Search and filter state
+  const { search, setSearch, debouncedSearch, filters, updateFilter } = useSearchAndFilter();
+  const { page, limit, offset, nextPage, prevPage, setLimit } = usePagination();
+  
+  // Data fetching
+  const { data: users, loading: usersLoading, refetch: refetchUsers } = useUsers({
+    search: debouncedSearch,
+    status: filters.status,
+    limit,
+    offset
+  });
+  
+  const { data: userStats, loading: statsLoading } = useUserStats();
+  const { updateKycStatus, updateUserProfile, loading: actionLoading } = useUserActions();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
-        return <Badge variant="secondary" className="bg-success/10 text-success">Approved</Badge>;
+        return <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Approved</Badge>;
       case "pending":
-        return <Badge variant="secondary" className="bg-warning/10 text-warning">Pending</Badge>;
+        return <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">Pending</Badge>;
       case "rejected":
         return <Badge variant="destructive">Rejected</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
   };
-
-  const filteredUsers = mockUsers.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || user.kycStatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
 
   const handleViewUser = (user: any) => {
     setSelectedUser(user);
@@ -128,25 +87,51 @@ export default function Users() {
     setIsEditModalOpen(true);
   };
 
-  const handleApproveKYC = (userId: string) => {
+  const handleApproveKYC = async (userId: string) => {
+    const success = await updateKycStatus(userId, 'approved');
+    if (success) {
+      refetchUsers();
+    }
+  };
+
+  const handleRejectKYC = async (userId: string) => {
+    const success = await updateKycStatus(userId, 'rejected', 'Manual rejection by admin');
+    if (success) {
+      refetchUsers();
+    }
+  };
+
+  const handleSaveUser = async (userData: any) => {
+    if (selectedUser) {
+      const success = await updateUserProfile(selectedUser.id, userData);
+      if (success) {
+        setIsEditModalOpen(false);
+        refetchUsers();
+      }
+    }
+  };
+
+  const handleRefresh = () => {
+    refetchUsers();
+  };
+
+  const handleExportUsers = () => {
     toast({
-      title: "KYC Approved",
-      description: `User ${userId} KYC has been approved successfully.`,
+      title: "Export Started",
+      description: "User data export will be available shortly.",
     });
   };
 
-  const handleRejectKYC = (userId: string) => {
-    toast({
-      title: "KYC Rejected",
-      description: `User ${userId} KYC has been rejected.`,
-      variant: "destructive",
-    });
-  };
-
-  const handleSaveUser = (userData: any) => {
-    // In a real app, this would make an API call
-    console.log("Saving user data:", userData);
-  };
+  // Loading state
+  if (usersLoading && !users) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -158,15 +143,15 @@ export default function Users() {
             <p className="text-muted-foreground">Manage user accounts, KYC approvals, and wallet balances</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={usersLoading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${usersLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button variant="outline" size="sm">
               <UserPlus className="mr-2 h-4 w-4" />
               Add User
             </Button>
-            <Button>
+            <Button onClick={handleExportUsers}>
               <Download className="mr-2 h-4 w-4" />
               Export Users
             </Button>
@@ -177,25 +162,33 @@ export default function Users() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold">12,483</div>
+              <div className="text-2xl font-bold">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : (userStats?.totalUsers || 0).toLocaleString()}
+              </div>
               <p className="text-sm text-muted-foreground">Total Users</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-warning">23</div>
+              <div className="text-2xl font-bold text-warning">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : userStats?.pendingKyc || 0}
+              </div>
               <p className="text-sm text-muted-foreground">Pending KYC</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-success">11,890</div>
+              <div className="text-2xl font-bold text-success">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : (userStats?.approvedKyc || 0).toLocaleString()}
+              </div>
               <p className="text-sm text-muted-foreground">Approved KYC</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-destructive">570</div>
+              <div className="text-2xl font-bold text-destructive">
+                {statsLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : userStats?.rejectedKyc || 0}
+              </div>
               <p className="text-sm text-muted-foreground">Rejected KYC</p>
             </CardContent>
           </Card>
@@ -213,13 +206,13 @@ export default function Users() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search by name, email, or user ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                     className="pl-10"
                   />
                 </div>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={filters.status || 'all'} onValueChange={(value) => updateFilter('status', value)}>
                 <SelectTrigger className="w-48">
                   <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Filter by status" />
@@ -248,71 +241,88 @@ export default function Users() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-sm text-muted-foreground">{user.email}</div>
-                          <div className="text-xs text-muted-foreground">{user.id}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.joinDate}</TableCell>
-                      <TableCell>{getStatusBadge(user.kycStatus)}</TableCell>
-                      <TableCell>₹{user.walletBalance.toFixed(2)}</TableCell>
-                      <TableCell>{user.totalPlaytime}</TableCell>
-                      <TableCell className="text-sm">{user.lastLogin}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleViewUser(user)}
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {user.kycStatus === "pending" && (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-success hover:bg-success/10"
-                                onClick={() => handleApproveKYC(user.id)}
-                                title="Approve KYC"
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="text-destructive hover:bg-destructive/10"
-                                onClick={() => handleRejectKYC(user.id)}
-                                title="Reject KYC"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleEditUser(user)}
-                            title="Edit User"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            title="More Actions"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </div>
+                  {usersLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                        <p className="mt-2 text-muted-foreground">Loading users...</p>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : users && users.length > 0 ? (
+                    users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                            <div className="text-xs text-muted-foreground">{user.id}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{user.joinDate}</TableCell>
+                        <TableCell>{getStatusBadge(user.kycStatus)}</TableCell>
+                        <TableCell>₹{typeof user.walletBalance === 'number' ? user.walletBalance.toFixed(2) : '0.00'}</TableCell>
+                        <TableCell>{user.totalPlaytime}</TableCell>
+                        <TableCell className="text-sm">{user.lastLogin}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleViewUser(user)}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {user.kycStatus === "pending" && (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-success hover:bg-success/10"
+                                  onClick={() => handleApproveKYC(user.id)}
+                                  title="Approve KYC"
+                                  disabled={actionLoading}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleRejectKYC(user.id)}
+                                  title="Reject KYC"
+                                  disabled={actionLoading}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => handleEditUser(user)}
+                              title="Edit User"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              title="More Actions"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <p className="text-muted-foreground">No users found</p>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -320,11 +330,15 @@ export default function Users() {
             {/* Pagination */}
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
-                Showing {filteredUsers.length} of {mockUsers.length} users
+                Showing {users?.length || 0} users {search && `matching "${search}"`}
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm">Previous</Button>
-                <Button variant="outline" size="sm">Next</Button>
+                <Button variant="outline" size="sm" onClick={prevPage} disabled={page === 1}>
+                  Previous
+                </Button>
+                <Button variant="outline" size="sm" onClick={nextPage} disabled={!users || users.length < limit}>
+                  Next
+                </Button>
               </div>
             </div>
           </CardContent>

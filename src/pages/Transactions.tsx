@@ -6,37 +6,64 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, Filter, RefreshCw } from "lucide-react";
+import { Search, Download, Filter, RefreshCw, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { 
+  useTransactions, 
+  useWalletBalances,
+  useSearchAndFilter,
+  usePagination
+} from "@/hooks/useDatabase";
+import { useToast } from "@/hooks/use-toast";
 
-const mockTransactions = [
-  { id: "TXN001", user: "john@example.com", amount: "₹500", type: "Add Funds", status: "Completed", date: "2024-08-15" },
-  { id: "TXN002", user: "jane@example.com", amount: "100 Points", type: "Spend", status: "Completed", date: "2024-08-15" },
-  { id: "TXN003", user: "bob@example.com", amount: "₹250", type: "Conversion", status: "Pending", date: "2024-08-14" },
-  { id: "TXN004", user: "alice@example.com", amount: "₹1000", type: "Add Funds", status: "Failed", date: "2024-08-14" },
-];
 
-const mockWallets = [
-  { user: "john@example.com", inrBalance: "₹1,250", pointsBalance: "850 Points", lastUpdated: "2024-08-15" },
-  { user: "jane@example.com", inrBalance: "₹750", pointsBalance: "1,200 Points", lastUpdated: "2024-08-15" },
-  { user: "bob@example.com", inrBalance: "₹500", pointsBalance: "300 Points", lastUpdated: "2024-08-14" },
-];
 
 export default function Transactions() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("transactions");
+  
+  // Search and filter state
+  const { search, setSearch, debouncedSearch, filters, updateFilter } = useSearchAndFilter();
+  const { page, limit, offset, nextPage, prevPage } = usePagination();
+  
+  // Data fetching
+  const { data: transactions, loading: transactionsLoading, refetch: refetchTransactions } = useTransactions({
+    search: debouncedSearch,
+    status: filters.status,
+    limit,
+    offset
+  });
+  
+  const { data: walletBalances, loading: walletsLoading, refetch: refetchWallets } = useWalletBalances();
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Completed":
+    switch (status?.toLowerCase()) {
+      case "completed":
         return <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Completed</Badge>;
-      case "Pending":
+      case "pending":
         return <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">Pending</Badge>;
-      case "Failed":
+      case "failed":
         return <Badge variant="destructive">Failed</Badge>;
+      case "cancelled":
+        return <Badge variant="outline">Cancelled</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+  
+  const handleRefresh = () => {
+    if (activeTab === "transactions") {
+      refetchTransactions();
+    } else {
+      refetchWallets();
+    }
+  };
+  
+  const handleExport = () => {
+    toast({
+      title: "Export Started",
+      description: "Transaction data export will be available shortly.",
+    });
   };
 
   return (
@@ -48,18 +75,18 @@ export default function Transactions() {
             <p className="text-muted-foreground">Monitor payments, wallets, and financial activities</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={transactionsLoading || walletsLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${(transactionsLoading || walletsLoading) ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
           </div>
         </div>
 
-        <Tabs defaultValue="transactions" className="space-y-6">
+        <Tabs defaultValue="transactions" onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 max-w-md">
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
             <TabsTrigger value="wallets">Wallet Balances</TabsTrigger>
@@ -77,12 +104,12 @@ export default function Transactions() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search by user email, transaction ID..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
                       className="pl-10"
                     />
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select value={filters.status || 'all'} onValueChange={(value) => updateFilter('status', value)}>
                     <SelectTrigger className="w-[180px]">
                       <Filter className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter by status" />
@@ -92,6 +119,7 @@ export default function Transactions() {
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -110,19 +138,34 @@ export default function Transactions() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mockTransactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
-                          <TableCell className="font-mono">{transaction.id}</TableCell>
-                          <TableCell>{transaction.user}</TableCell>
-                          <TableCell className="font-medium">{transaction.amount}</TableCell>
-                          <TableCell>{transaction.type}</TableCell>
-                          <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                          <TableCell>{transaction.date}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm">View Details</Button>
+                      {transactionsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                            <p className="mt-2 text-muted-foreground">Loading transactions...</p>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : transactions && transactions.length > 0 ? (
+                        transactions.map((transaction) => (
+                          <TableRow key={transaction.id}>
+                            <TableCell className="font-mono">{transaction.id}</TableCell>
+                            <TableCell>{transaction.user}</TableCell>
+                            <TableCell className="font-medium">{transaction.amount}</TableCell>
+                            <TableCell className="capitalize">{transaction.type}</TableCell>
+                            <TableCell>{getStatusBadge(transaction.status)}</TableCell>
+                            <TableCell>{transaction.date}</TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm">View Details</Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8">
+                            <p className="text-muted-foreground">No transactions found</p>
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -149,18 +192,33 @@ export default function Transactions() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mockWallets.map((wallet, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{wallet.user}</TableCell>
-                          <TableCell className="font-medium text-success">{wallet.inrBalance}</TableCell>
-                          <TableCell className="font-medium text-primary">{wallet.pointsBalance}</TableCell>
-                          <TableCell>{wallet.lastUpdated}</TableCell>
-                          <TableCell className="space-x-2">
-                            <Button variant="ghost" size="sm">Edit Balance</Button>
-                            <Button variant="ghost" size="sm">View History</Button>
+                      {walletsLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                            <p className="mt-2 text-muted-foreground">Loading wallet data...</p>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : walletBalances && walletBalances.length > 0 ? (
+                        walletBalances.map((wallet, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{wallet.user}</TableCell>
+                            <TableCell className="font-medium text-success">{wallet.inrBalance}</TableCell>
+                            <TableCell className="font-medium text-primary">{wallet.pointsBalance}</TableCell>
+                            <TableCell>{wallet.lastUpdated}</TableCell>
+                            <TableCell className="space-x-2">
+                              <Button variant="ghost" size="sm">Edit Balance</Button>
+                              <Button variant="ghost" size="sm">View History</Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8">
+                            <p className="text-muted-foreground">No wallet data found</p>
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>

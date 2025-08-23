@@ -4,42 +4,36 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, Users, Clock, Target, Download, Calendar } from "lucide-react";
+import { TrendingUp, Users, Clock, Target, Download, Calendar, Loader2 } from "lucide-react";
 import { useState } from "react";
+import {
+  usePlaytimeData,
+  useTopSongs,
+  useUserSegmentData,
+  usePointsEarnedData,
+  useAnalyticsKPIs
+} from "@/hooks/useDatabase";
 
-const playtimeData = [
-  { date: "2024-08-10", minutes: 45000 },
-  { date: "2024-08-11", minutes: 52000 },
-  { date: "2024-08-12", minutes: 48000 },
-  { date: "2024-08-13", minutes: 61000 },
-  { date: "2024-08-14", minutes: 55000 },
-  { date: "2024-08-15", minutes: 68000 },
-];
 
-const topSongsData = [
-  { song: "Shape of You", plays: 1250 },
-  { song: "Blinding Lights", plays: 1180 },
-  { song: "Stay", plays: 1050 },
-  { song: "Good 4 U", plays: 920 },
-  { song: "Levitating", plays: 850 },
-];
-
-const userSegmentData = [
-  { name: "Premium Users", value: 65, color: "hsl(var(--primary))" },
-  { name: "Free Users", value: 35, color: "hsl(var(--secondary))" },
-];
-
-const pointsEarnedData = [
-  { date: "Aug 10", points: 12500 },
-  { date: "Aug 11", points: 15200 },
-  { date: "Aug 12", points: 13800 },
-  { date: "Aug 13", points: 18100 },
-  { date: "Aug 14", points: 16400 },
-  { date: "Aug 15", points: 21300 },
-];
 
 export default function Analytics() {
   const [dateRange, setDateRange] = useState("7d");
+  const daysMap = { "7d": 7, "30d": 30, "90d": 90 };
+  const days = daysMap[dateRange as keyof typeof daysMap] || 7;
+  
+  // Fetch data using custom hooks
+  const { data: kpis, loading: kpisLoading } = useAnalyticsKPIs();
+  const { data: playtimeData, loading: playtimeLoading } = usePlaytimeData(days);
+  const { data: topSongsData, loading: songsLoading } = useTopSongs(5);
+  const { data: userSegmentData, loading: segmentLoading } = useUserSegmentData();
+  const { data: pointsEarnedData, loading: pointsLoading } = usePointsEarnedData(days);
+  
+  const isLoading = kpisLoading || playtimeLoading || songsLoading || segmentLoading || pointsLoading;
+  
+  const handleExportReport = () => {
+    // Export functionality would be implemented here
+    console.log('Exporting analytics report...');
+  };
 
   return (
     <AdminLayout>
@@ -50,7 +44,7 @@ export default function Analytics() {
             <p className="text-muted-foreground">Comprehensive insights into platform performance and user behavior</p>
           </div>
           <div className="flex gap-2">
-            <Select value={dateRange} onValueChange={setDateRange}>
+            <Select value={dateRange} onValueChange={(value) => setDateRange(value)}>
               <SelectTrigger className="w-[150px]">
                 <Calendar className="h-4 w-4 mr-2" />
                 <SelectValue />
@@ -61,7 +55,7 @@ export default function Analytics() {
                 <SelectItem value="90d">Last 90 days</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExportReport}>
               <Download className="h-4 w-4 mr-2" />
               Export Report
             </Button>
@@ -76,7 +70,9 @@ export default function Analytics() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24.5 min</div>
+              <div className="text-2xl font-bold">
+                {kpisLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kpis?.avgSessionTime || '0 min'}
+              </div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-success">+12%</span> from last period
               </p>
@@ -88,7 +84,9 @@ export default function Analytics() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">87.2%</div>
+              <div className="text-2xl font-bold">
+                {kpisLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kpis?.userRetention || '0%'}
+              </div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-success">+5.1%</span> from last period
               </p>
@@ -100,7 +98,9 @@ export default function Analytics() {
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">94.8%</div>
+              <div className="text-2xl font-bold">
+                {kpisLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kpis?.botEfficiency || '0%'}
+              </div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-success">+2.3%</span> from last period
               </p>
@@ -112,7 +112,9 @@ export default function Analytics() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">+15.3%</div>
+              <div className="text-2xl font-bold">
+                {kpisLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : kpis?.growthRate || '0%'}
+              </div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-success">+8.1%</span> from last period
               </p>
@@ -128,15 +130,21 @@ export default function Analytics() {
               <CardDescription>Daily playtime trends over the selected period</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={playtimeData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="minutes" stroke="hsl(var(--primary))" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+              {playtimeLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={playtimeData || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="minutes" stroke="hsl(var(--primary))" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -146,23 +154,29 @@ export default function Analytics() {
               <CardDescription>Premium vs Free users breakdown</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={userSegmentData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}%`}
-                  >
-                    {userSegmentData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {segmentLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={userSegmentData || []}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}%`}
+                    >
+                      {(userSegmentData || []).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -172,15 +186,21 @@ export default function Analytics() {
               <CardDescription>Most popular tracks on the platform</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topSongsData} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="song" type="category" width={100} />
-                  <Tooltip />
-                  <Bar dataKey="plays" fill="hsl(var(--secondary))" />
-                </BarChart>
-              </ResponsiveContainer>
+              {songsLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={topSongsData || []} layout="horizontal">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="song" type="category" width={100} />
+                    <Tooltip />
+                    <Bar dataKey="plays" fill="hsl(var(--secondary))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -190,15 +210,21 @@ export default function Analytics() {
               <CardDescription>Total points distributed to users</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={pointsEarnedData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="points" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
+              {pointsLoading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={pointsEarnedData || []}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="points" fill="hsl(var(--primary))" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </div>
