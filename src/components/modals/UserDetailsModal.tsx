@@ -16,42 +16,158 @@ import {
   Shield,
   Activity,
   FileText,
-  Download
+  Download,
+  Trophy,
+  AlertCircle,
+  Eye
 } from "lucide-react";
+import { useUserById } from "@/hooks/useDatabase";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 
 interface UserDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    joinDate: string;
-    kycStatus: string;
-    walletBalance: number;
-    lastLogin: string;
-    totalPlaytime: string;
-    phone?: string;
-    location?: string;
-    spotifyConnected?: boolean;
-    totalTransactions?: number;
-    averageSession?: string;
-  };
+  userId: string;
 }
 
-export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProps) {
+export function UserDetailsModal({ isOpen, onClose, userId }: UserDetailsModalProps) {
+  const { data: user, loading } = useUserById(userId);
+  const { toast } = useToast();
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [documentLoading, setDocumentLoading] = useState(false);
+
+  useEffect(() => {
+    if (userId && isOpen) {
+      fetchUserDocuments(userId);
+    }
+  }, [userId, isOpen]);
+
+  const fetchUserDocuments = async (userId: string) => {
+    try {
+      setDocumentLoading(true);
+      const { data, error } = await supabase
+        .from('kyc_documents')
+        .select('*')
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      setDocuments(data || []);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch user documents",
+        variant: "destructive"
+      });
+    } finally {
+      setDocumentLoading(false);
+    }
+  };
+
+  const handleViewDocument = async (document: any) => {
+    try {
+      // Create a signed URL for the document
+      const { data, error } = await supabase
+        .storage
+        .from('kyc-documents')
+        .createSignedUrl(document.document_url, 60); // URL valid for 60 seconds
+        
+      if (error) throw error;
+      
+      // Open the document in a new tab
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to open document",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    if (documents.length === 0) {
+      toast({
+        title: "No Documents Found",
+        description: "No documents available for this user",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // For each document, create a signed URL and trigger download
+      for (const document of documents) {
+        const { data, error } = await supabase
+          .storage
+          .from('kyc-documents')
+          .createSignedUrl(document.document_url, 60);
+          
+        if (error) throw error;
+        
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = data.signedUrl;
+        link.download = document.file_name || 'document';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      toast({
+        title: "Download Started",
+        description: "Documents are being downloaded"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download documents",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
-        return <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Verified</Badge>;
+        return <Badge variant="secondary" className="bg-success/10 text-success border-success/20">Approved</Badge>;
       case "pending":
         return <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20">Pending Review</Badge>;
       case "rejected":
         return <Badge variant="destructive">Rejected</Badge>;
+      case "under_review":
+        return <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">Under Review</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
   };
+
+  if (loading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">User not found</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -90,7 +206,7 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Phone</p>
-                  <p className="text-sm text-muted-foreground">{user.phone || "+91 XXXX-XXXX-XX"}</p>
+                  <p className="text-sm text-muted-foreground">{user.phone}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -104,7 +220,7 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Location</p>
-                  <p className="text-sm text-muted-foreground">{user.location || "Mumbai, India"}</p>
+                  <p className="text-sm text-muted-foreground">{user.location}</p>
                 </div>
               </div>
             </CardContent>
@@ -126,30 +242,52 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Spotify Connected</span>
                 <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
-                  Connected
+                  {user.spotifyConnected ? 'Connected' : 'Not Connected'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Account Type</span>
-                <Badge variant="outline">Premium User</Badge>
+                <Badge variant="outline">{user.accountType}</Badge>
               </div>
               <Separator />
               <div className="space-y-2">
                 <h4 className="text-sm font-medium">KYC Documents</h4>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    <FileText className="h-4 w-4 mr-2" />
-                    View Aadhaar
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <FileText className="h-4 w-4 mr-2" />
-                    View PAN
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download All
-                  </Button>
-                </div>
+                {documentLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                ) : documents.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-2 flex-wrap">
+                      {documents.map((document) => (
+                        <Button 
+                          key={document.id} 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleViewDocument(document)}
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View {document.document_type?.replace('_', ' ') || 'Document'}
+                        </Button>
+                      ))}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleDownloadAll}
+                        className="flex items-center gap-1"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download All
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="text-sm">No documents uploaded yet</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -170,12 +308,12 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <CreditCard className="h-8 w-8 mx-auto mb-2 text-success" />
-                <p className="text-2xl font-bold">{user.totalTransactions || 47}</p>
+                <p className="text-2xl font-bold">{user.totalTransactions}</p>
                 <p className="text-sm text-muted-foreground">Total Transactions</p>
               </div>
               <div className="text-center p-4 border rounded-lg">
-                <Activity className="h-8 w-8 mx-auto mb-2 text-warning" />
-                <p className="text-2xl font-bold">12,450</p>
+                <Trophy className="h-8 w-8 mx-auto mb-2 text-warning" />
+                <p className="text-2xl font-bold">{user.totalPoints.toLocaleString()}</p>
                 <p className="text-sm text-muted-foreground">Points Earned</p>
               </div>
             </CardContent>
@@ -201,7 +339,7 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
                 <Activity className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Average Session</p>
-                  <p className="text-sm text-muted-foreground">{user.averageSession || "45 minutes"}</p>
+                  <p className="text-sm text-muted-foreground">{user.averageSession}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -215,24 +353,15 @@ export function UserDetailsModal({ isOpen, onClose, user }: UserDetailsModalProp
                 <User className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">Account Age</p>
-                  <p className="text-sm text-muted-foreground">7 months</p>
+                  <p className="text-sm text-muted-foreground">{user.accountAge}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" className="flex-1">
-              Send Notification
-            </Button>
-            <Button variant="outline" className="flex-1">
-              View Transaction History
-            </Button>
-            <Button variant="outline" className="flex-1">
-              Export User Data
-            </Button>
-            <Button onClick={onClose}>Close</Button>
+          {/* Action Buttons - Removed as per request */}
+          <div className="flex gap-3 pt-4 flex-wrap">
+            <Button onClick={onClose} className="flex-1 min-w-[120px]">Close</Button>
           </div>
         </div>
       </DialogContent>

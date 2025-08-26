@@ -16,6 +16,7 @@ import BotSettings from "./pages/BotSettings";
 import RewardSettings from "./pages/RewardSettings";
 import CMS from "./pages/CMS";
 import Profile from "./pages/Profile";
+import UserDetail from "./pages/UserDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,22 @@ const App = () => (
               element={
                 <ProtectedRoute requireAdmin>
                   <Users />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/users/:userId" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <UserDetail />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/user/akshayrajput2616" 
+              element={
+                <ProtectedRoute requireAdmin>
+                  <UserDetail />
                 </ProtectedRoute>
               } 
             />

@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { UserDetailsModal } from "@/components/modals/UserDetailsModal";
 import { EditUserModal } from "@/components/modals/EditUserModal";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -40,14 +40,28 @@ import {
   MoreHorizontal,
   UserPlus,
   RefreshCw,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Users() {
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isApprovalWarningOpen, setIsApprovalWarningOpen] = useState(false);
+  const [userToApprove, setUserToApprove] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
   
   // Search and filter state
   const { search, setSearch, debouncedSearch, filters, updateFilter } = useSearchAndFilter();
@@ -77,9 +91,8 @@ export default function Users() {
     }
   };
 
-  const handleViewUser = (user: any) => {
-    setSelectedUser(user);
-    setIsDetailsModalOpen(true);
+  const handleViewUser = (userId: string) => {
+    navigate(`/users/${userId}`);
   };
 
   const handleEditUser = (user: any) => {
@@ -87,10 +100,60 @@ export default function Users() {
     setIsEditModalOpen(true);
   };
 
+  const checkUserDocuments = async (userId: string) => {
+    try {
+      setDocumentsLoading(true);
+      const { data, error } = await supabase
+        .from('kyc_documents')
+        .select('*')
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      setDocuments(data || []);
+      
+      // Check if user has both Aadhaar and PAN documents
+      const hasAadhaar = data?.some(doc => doc.document_type === 'aadhaar');
+      const hasPAN = data?.some(doc => doc.document_type === 'pan');
+      
+      return hasAadhaar && hasPAN;
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check user documents",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
+
   const handleApproveKYC = async (userId: string) => {
-    const success = await updateKycStatus(userId, 'approved');
-    if (success) {
-      refetchUsers();
+    const hasRequiredDocuments = await checkUserDocuments(userId);
+    
+    if (!hasRequiredDocuments) {
+      // Show warning popup
+      setUserToApprove(userId);
+      setIsApprovalWarningOpen(true);
+    } else {
+      // Proceed with approval
+      const success = await updateKycStatus(userId, 'approved');
+      if (success) {
+        refetchUsers();
+      }
+    }
+  };
+
+  const handleConfirmApproval = async () => {
+    if (userToApprove) {
+      const success = await updateKycStatus(userToApprove, 'approved');
+      if (success) {
+        refetchUsers();
+        setIsApprovalWarningOpen(false);
+        setUserToApprove(null);
+      }
     }
   };
 
@@ -146,10 +209,6 @@ export default function Users() {
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={usersLoading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${usersLoading ? 'animate-spin' : ''}`} />
               Refresh
-            </Button>
-            <Button variant="outline" size="sm">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add User
             </Button>
             <Button onClick={handleExportUsers}>
               <Download className="mr-2 h-4 w-4" />
@@ -268,7 +327,7 @@ export default function Users() {
                             <Button 
                               variant="ghost" 
                               size="icon"
-                              onClick={() => handleViewUser(user)}
+                              onClick={() => handleViewUser(user.id)}
                               title="View Details"
                             >
                               <Eye className="h-4 w-4" />
@@ -281,7 +340,7 @@ export default function Users() {
                                   className="text-success hover:bg-success/10"
                                   onClick={() => handleApproveKYC(user.id)}
                                   title="Approve KYC"
-                                  disabled={actionLoading}
+                                  disabled={actionLoading || documentsLoading}
                                 >
                                   <Check className="h-4 w-4" />
                                 </Button>
@@ -345,21 +404,40 @@ export default function Users() {
         </Card>
       </div>
 
+      {/* Approval Warning Dialog */}
+      <Dialog open={isApprovalWarningOpen} onOpenChange={setIsApprovalWarningOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Warning: Required Documents Missing
+            </DialogTitle>
+            <DialogDescription>
+              This user has not uploaded both Aadhaar and PAN documents. Approving their KYC without these required documents may pose security risks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to approve this user's KYC without verifying their required documents?
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsApprovalWarningOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmApproval}>Approve Anyway</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modals */}
       {selectedUser && (
-        <>
-          <UserDetailsModal
-            isOpen={isDetailsModalOpen}
-            onClose={() => setIsDetailsModalOpen(false)}
-            user={selectedUser}
-          />
-          <EditUserModal
-            isOpen={isEditModalOpen}
-            onClose={() => setIsEditModalOpen(false)}
-            user={selectedUser}
-            onSave={handleSaveUser}
-          />
-        </>
+        <EditUserModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          user={selectedUser}
+          onSave={handleSaveUser}
+        />
       )}
     </AdminLayout>
   );

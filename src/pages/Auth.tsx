@@ -79,10 +79,31 @@ export default function Auth() {
 
   const handleSpotifyAuth = async () => {
     try {
+      // For production deployment, we need to specify the exact redirect URL
+      // Check if we have a specific Vercel domain environment variable
+      const vercelDomain = import.meta.env.VITE_VERCEL_DOMAIN;
+      const isVercel = !!import.meta.env.VITE_VERCEL;
+      
+      let redirectTo;
+      if (process.env.NODE_ENV === 'production') {
+        if (vercelDomain) {
+          redirectTo = `https://${vercelDomain}/dashboard`;
+        } else if (isVercel) {
+          // If we're on Vercel but don't have a specific domain, use the current origin
+          redirectTo = `${window.location.origin}/dashboard`;
+        } else {
+          // Fallback for other production environments
+          redirectTo = `${window.location.origin}/dashboard`;
+        }
+      } else {
+        // Development environment
+        redirectTo = `${window.location.origin}/dashboard`;
+      }
+        
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'spotify',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: redirectTo,
           scopes: 'user-read-email user-read-private playlist-read-private playlist-read-collaborative user-library-read user-read-recently-played'
         }
       });
@@ -96,6 +117,11 @@ export default function Auth() {
       }
     } catch (error) {
       console.error('Spotify auth error:', error);
+      toast({
+        title: "Spotify Auth Error",
+        description: "Failed to initiate Spotify authentication. Please check the console for details.",
+        variant: "destructive",
+      });
     }
   };
 

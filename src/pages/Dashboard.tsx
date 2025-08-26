@@ -86,7 +86,7 @@ export default function Dashboard() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </AdminLayout>
     );
@@ -104,7 +104,7 @@ export default function Dashboard() {
             </p>
           </div>
           <Button 
-            className="bg-gradient-to-r from-primary to-primary-light"
+            className="bg-primary hover:bg-primary/90"
             onClick={() => navigate('/analytics')}
           >
             <TrendingUp className="mr-2 h-4 w-4" />
@@ -122,14 +122,14 @@ export default function Dashboard() {
         {/* Charts and Activity */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Recent Activity */}
-          <Card>
+          <Card className="bg-card border-0 shadow-md">
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {recentActivities && recentActivities.length > 0 ? (
-                  recentActivities.map((activity, index) => (
+                  recentActivities.map((activity: any, index: number) => (
                     <div key={index} className="flex items-center justify-between py-2">
                       <div className="flex items-center space-x-3">
                         <div className={`w-2 h-2 rounded-full ${
@@ -155,14 +155,14 @@ export default function Dashboard() {
           </Card>
 
           {/* Quick Actions */}
-          <Card>
+          <Card className="bg-card border-0 shadow-md">
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="w-full justify-start hover:bg-primary/10"
                 onClick={() => navigate('/kyc')}
               >
                 <Users className="mr-2 h-4 w-4" />
@@ -170,7 +170,7 @@ export default function Dashboard() {
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="w-full justify-start hover:bg-primary/10"
                 onClick={() => navigate('/bots/settings')}
               >
                 <Bot className="mr-2 h-4 w-4" />
@@ -178,7 +178,7 @@ export default function Dashboard() {
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="w-full justify-start hover:bg-primary/10"
                 onClick={() => navigate('/rewards/settings')}
               >
                 <Trophy className="mr-2 h-4 w-4" />
@@ -186,7 +186,7 @@ export default function Dashboard() {
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full justify-start"
+                className="w-full justify-start hover:bg-primary/10"
                 onClick={() => navigate('/transactions')}
               >
                 <DollarSign className="mr-2 h-4 w-4" />
@@ -200,7 +200,7 @@ export default function Dashboard() {
         <PlaylistSection />
 
         {/* System Status */}
-        <Card>
+        <Card className="bg-card border-0 shadow-md">
           <CardHeader>
             <CardTitle>System Status</CardTitle>
           </CardHeader>

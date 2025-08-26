@@ -138,6 +138,19 @@ export function useUserActions() {
   };
 }
 
+// Hook to get a single user by ID
+export function useUserById(userId?: string) {
+  return useAsyncOperation(
+    () => {
+      if (!userId) {
+        return Promise.resolve(null);
+      }
+      return UsersService.getUserById(userId);
+    },
+    [userId]
+  );
+}
+
 // Transactions hooks
 export function useTransactions(options: {
   search?: string;
@@ -300,6 +313,82 @@ export function usePlaylists() {
 
 export function usePlaylistStats() {
   return useAsyncOperation(() => PlaylistService.getPlaylistStats());
+}
+
+// Playlist Actions hook
+export function usePlaylistActions() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  const importPlaylist = async (playlistData: any, userId: string) => {
+    try {
+      setLoading(true);
+      const result = await PlaylistService.importPlaylist(playlistData, userId);
+      toast({
+        title: 'Success',
+        description: 'Playlist imported successfully',
+      });
+      return result;
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to import playlist',
+        variant: 'destructive'
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePlaylistStatus = async (playlistId: string, isPublic: boolean) => {
+    try {
+      setLoading(true);
+      const result = await PlaylistService.updatePlaylistStatus(playlistId, isPublic);
+      toast({
+        title: 'Success',
+        description: 'Playlist status updated successfully',
+      });
+      return result;
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update playlist status',
+        variant: 'destructive'
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deletePlaylist = async (playlistId: string) => {
+    try {
+      setLoading(true);
+      const result = await PlaylistService.deletePlaylist(playlistId);
+      toast({
+        title: 'Success',
+        description: 'Playlist deleted successfully',
+      });
+      return result;
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete playlist',
+        variant: 'destructive'
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    importPlaylist,
+    updatePlaylistStatus,
+    deletePlaylist,
+    loading
+  };
 }
 
 // System Settings hooks

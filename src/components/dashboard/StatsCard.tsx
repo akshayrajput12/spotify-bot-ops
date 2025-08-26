@@ -25,31 +25,34 @@ export function StatsCard({
   const getVariantStyles = () => {
     switch (variant) {
       case "success":
-        return "border-success/20 bg-success/5";
+        return "border-success/20 bg-success/10";
       case "warning":
-        return "border-warning/20 bg-warning/5";
+        return "border-warning/20 bg-warning/10";
       case "primary":
-        return "border-primary/20 bg-primary/5";
+        return "border-primary/20 bg-primary/10";
       default:
-        return "";
+        return "bg-card";
     }
   };
 
   const getIconVariantStyles = () => {
     switch (variant) {
       case "success":
-        return "bg-success text-success-foreground";
+        return "bg-success/20 text-success";
       case "warning":
-        return "bg-warning text-warning-foreground";
+        return "bg-warning/20 text-warning";
       case "primary":
-        return "bg-primary text-primary-foreground";
+        return "bg-primary/20 text-primary";
       default:
         return "bg-muted text-muted-foreground";
     }
   };
 
   return (
-    <Card className={cn("transition-shadow hover:shadow-md", getVariantStyles())}>
+    <Card className={cn(
+      "transition-all hover:shadow-lg hover:scale-[1.02]",
+      getVariantStyles()
+    )}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}

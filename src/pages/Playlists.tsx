@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { usePlaylists, usePlaylistActions } from "@/hooks/useDatabase";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Music, 
   Plus, 
@@ -18,7 +21,8 @@ import {
   Pause,
   MoreHorizontal,
   Trash2,
-  Eye
+  Eye,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -33,7 +37,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
@@ -62,106 +65,143 @@ interface Playlist {
 
 export default function Playlists() {
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const { data: playlistsData, loading: playlistsLoading, refetch } = usePlaylists();
+  const { importPlaylist, updatePlaylistStatus, deletePlaylist, loading: actionsLoading } = usePlaylistActions();
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [spotifyAccessToken, setSpotifyAccessToken] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [spotifyPlaylists, setSpotifyPlaylists] = useState<any[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+  const [fetchingPlaylists, setFetchingPlaylists] = useState(false);
 
-  // Mock data for development
-  const mockPlaylists: Playlist[] = [
-    {
-      id: "1",
-      spotify_id: "37i9dQZF1DXcBWIGoYBM5M",
-      name: "Today's Top Hits",
-      description: "The most played songs on Spotify right now",
-      image_url: "https://i.scdn.co/image/ab67706f00000002ca5a7517156021292e5663a6",
-      tracks_count: 50,
-      total_duration: 12000,
-      is_active: true,
-      created_by: "admin",
-      tracks: []
-    },
-    {
-      id: "2", 
-      spotify_id: "37i9dQZF1DX0XUsuxWHRQd",
-      name: "RapCaviar",
-      description: "New music and big hits in hip-hop",
-      image_url: "https://i.scdn.co/image/ab67706f00000002ca5a7517156021292e5663a6",
-      tracks_count: 65,
-      total_duration: 15600,
-      is_active: true,
-      created_by: "admin",
-      tracks: []
-    }
-  ];
-
+  // Set playlists from database
   useEffect(() => {
-    setPlaylists(mockPlaylists);
-  }, []);
+    if (playlistsData) {
+      setPlaylists(playlistsData);
+    }
+  }, [playlistsData]);
+
+  // Check if user has Spotify connected
+  useEffect(() => {
+    if (profile?.spotify_id) {
+      setIsConnected(true);
+    }
+  }, [profile]);
 
   const connectToSpotify = async () => {
     setLoading(true);
     try {
-      // In a real implementation, this would use the Spotify Web API
-      // For now, we'll simulate the connection
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setIsConnected(true);
-      setSpotifyAccessToken("mock_token");
-      toast({
-        title: "Connected to Spotify",
-        description: "Successfully connected to your Spotify account",
+      // For production deployment, we need to specify the exact redirect URL
+      // Check if we have a specific Vercel domain environment variable
+      const vercelDomain = import.meta.env.VITE_VERCEL_DOMAIN;
+      const isVercel = !!import.meta.env.VITE_VERCEL;
+      
+      let redirectTo;
+      if (process.env.NODE_ENV === 'production') {
+        if (vercelDomain) {
+          redirectTo = `https://${vercelDomain}/playlists`;
+        } else if (isVercel) {
+          // If we're on Vercel but don't have a specific domain, use the current origin
+          redirectTo = `${window.location.origin}/playlists`;
+        } else {
+          // Fallback for other production environments
+          redirectTo = `${window.location.origin}/playlists`;
+        }
+      } else {
+        // Development environment
+        redirectTo = `${window.location.origin}/playlists`;
+      }
+        
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'spotify',
+        options: {
+          redirectTo: redirectTo,
+          scopes: 'user-read-email user-read-private playlist-read-private playlist-read-collaborative user-library-read user-read-recently-played'
+        }
       });
       
-      // Mock Spotify playlists
-      setSpotifyPlaylists([
-        {
-          id: "new1",
-          name: "Chill Vibes",
-          description: "Relaxing music for focus",
-          images: [{ url: "https://i.scdn.co/image/ab67706f00000002ca5a7517156021292e5663a6" }],
-          tracks: { total: 45 }
-        },
-        {
-          id: "new2", 
-          name: "Workout Mix",
-          description: "High energy tracks for exercise",
-          images: [{ url: "https://i.scdn.co/image/ab67706f00000002ca5a7517156021292e5663a6" }],
-          tracks: { total: 32 }
-        }
-      ]);
+      if (error) {
+        toast({
+          title: "Connection Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        setLoading(false);
+      }
     } catch (error) {
+      console.error('Spotify connection error:', error);
       toast({
         title: "Connection Failed",
-        description: "Failed to connect to Spotify. Please try again.",
+        description: "Failed to connect to Spotify. Please check the console for details.",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
+
+  const fetchSpotifyPlaylists = async () => {
+    if (!profile?.id) return;
+    
+    setFetchingPlaylists(true);
+    try {
+      // Get the access token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.provider_token;
+      
+      if (!accessToken) {
+        throw new Error("No access token available");
+      }
+
+      // Fetch playlists from Spotify API
+      const response = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", {
+        headers: {
+          "Authorization": `Bearer ${accessToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Spotify API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setSpotifyPlaylists(data.items || []);
+    } catch (error) {
+      console.error("Error fetching Spotify playlists:", error);
+      toast({
+        title: "Fetch Failed",
+        description: "Failed to fetch playlists from Spotify. Please try again.",
         variant: "destructive",
       });
     }
-    setLoading(false);
+    setFetchingPlaylists(false);
   };
 
-  const importPlaylist = async (spotifyPlaylist: any) => {
+  // Fetch Spotify playlists when connected
+  useEffect(() => {
+    if (isConnected) {
+      fetchSpotifyPlaylists();
+    }
+  }, [isConnected]);
+
+  const handleImportPlaylist = async (spotifyPlaylist: any) => {
+    if (!profile?.id) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // Simulate importing playlist
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Save playlist to database
+      await importPlaylist(spotifyPlaylist, profile.id);
       
-      const newPlaylist: Playlist = {
-        id: Date.now().toString(),
-        spotify_id: spotifyPlaylist.id,
-        name: spotifyPlaylist.name,
-        description: spotifyPlaylist.description,
-        image_url: spotifyPlaylist.images[0]?.url || "",
-        tracks_count: spotifyPlaylist.tracks.total,
-        total_duration: spotifyPlaylist.tracks.total * 210, // Assume 3.5min avg
-        is_active: true,
-        created_by: "admin",
-        tracks: []
-      };
-      
-      setPlaylists(prev => [...prev, newPlaylist]);
+      // Refresh playlists
+      refetch();
       toast({
         title: "Playlist Imported",
         description: `"${spotifyPlaylist.name}" has been added to your playlists`,
@@ -176,20 +216,48 @@ export default function Playlists() {
     setLoading(false);
   };
 
-  const togglePlaylistStatus = (playlistId: string) => {
-    setPlaylists(prev => prev.map(playlist => 
-      playlist.id === playlistId 
-        ? { ...playlist, is_active: !playlist.is_active }
-        : playlist
-    ));
+  const handleTogglePlaylistStatus = async (playlistId: string) => {
+    try {
+      // Find the playlist to get its current status
+      const playlist = playlists.find(p => p.id === playlistId);
+      if (!playlist) return;
+      
+      // Update playlist status in database
+      await updatePlaylistStatus(playlistId, !playlist.is_active);
+      
+      // Refresh playlists
+      refetch();
+      toast({
+        title: "Playlist Updated",
+        description: `Playlist status updated to ${!playlist.is_active ? 'active' : 'inactive'}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update playlist status.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const deletePlaylist = (playlistId: string) => {
-    setPlaylists(prev => prev.filter(playlist => playlist.id !== playlistId));
-    toast({
-      title: "Playlist Deleted",
-      description: "Playlist has been removed from your collection",
-    });
+  const handleDeletePlaylist = async (playlistId: string) => {
+    try {
+      // Delete playlist from database
+      await deletePlaylist(playlistId);
+      
+      // Refresh playlists
+      refetch();
+      toast({
+        title: "Playlist Deleted",
+        description: "Playlist has been removed from your collection",
+      });
+    } catch (error) {
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete playlist.",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -202,6 +270,16 @@ export default function Playlists() {
     playlist.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     playlist.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (playlistsLoading && !playlistsData) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -252,7 +330,7 @@ export default function Playlists() {
         </div>
 
         {/* Spotify Import Section */}
-        {isConnected && spotifyPlaylists.length > 0 && (
+        {isConnected && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -261,36 +339,42 @@ export default function Playlists() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {spotifyPlaylists.map((playlist) => (
-                  <Card key={playlist.id} className="border-dashed">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={playlist.images[0]?.url} />
-                          <AvatarFallback>
-                            <Music className="h-6 w-6" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium truncate">{playlist.name}</h4>
-                          <p className="text-xs text-muted-foreground mb-2">
-                            {playlist.tracks.total} tracks
-                          </p>
-                          <Button 
-                            size="sm" 
-                            onClick={() => importPlaylist(playlist)}
-                            disabled={loading}
-                          >
-                            <Plus className="mr-1 h-3 w-3" />
-                            Import
-                          </Button>
+              {fetchingPlaylists ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {spotifyPlaylists.map((playlist) => (
+                    <Card key={playlist.id} className="border-dashed">
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Avatar className="w-12 h-12">
+                            <AvatarImage src={playlist.images?.[0]?.url} />
+                            <AvatarFallback>
+                              <Music className="h-6 w-6" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium truncate">{playlist.name}</h4>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              {playlist.tracks.total} tracks
+                            </p>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleImportPlaylist(playlist)}
+                              disabled={loading || actionsLoading}
+                            >
+                              <Plus className="mr-1 h-3 w-3" />
+                              Import
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -330,7 +414,7 @@ export default function Playlists() {
                         </a>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
-                        onClick={() => deletePlaylist(playlist.id)}
+                        onClick={() => handleDeletePlaylist(playlist.id)}
                         className="text-destructive"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -363,7 +447,7 @@ export default function Playlists() {
                     </div>
                     <Switch 
                       checked={playlist.is_active}
-                      onCheckedChange={() => togglePlaylistStatus(playlist.id)}
+                      onCheckedChange={() => handleTogglePlaylistStatus(playlist.id)}
                     />
                   </div>
                   

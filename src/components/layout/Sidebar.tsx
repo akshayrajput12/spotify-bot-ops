@@ -70,15 +70,15 @@ export function Sidebar() {
   const { profile, signOut } = useAuth();
 
   return (
-    <div className="bg-admin-sidebar text-admin-sidebar-foreground w-64 min-h-screen flex flex-col border-r border-border shadow-sm">
+    <div className="bg-sidebar-background text-sidebar-foreground w-64 min-h-screen flex flex-col border-r border-sidebar-border">
       {/* Logo Section */}
-      <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold text-foreground">Spotify Admin</h1>
-        <p className="text-sm text-muted-foreground">Playtime Enhancer</p>
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-sidebar-primary">Spotify Admin</h1>
+        <p className="text-sm text-muted-foreground mt-1">Playtime Enhancer</p>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 px-4 py-2 space-y-1">
         {sidebarItems.map((item) => {
           const isActive = location.pathname === item.href;
           return (
@@ -86,9 +86,9 @@ export function Sidebar() {
               key={item.href}
               variant="ghost"
               className={cn(
-                "w-full justify-start gap-3 h-11 font-medium",
-                "text-admin-sidebar-foreground hover:bg-admin-sidebar-hover",
-                isActive && "bg-admin-sidebar-active text-primary-foreground shadow-sm"
+                "w-full justify-start gap-3 h-12 font-medium text-sm rounded-md transition-colors",
+                "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                isActive && "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
               )}
               onClick={() => navigate(item.href)}
             >
@@ -100,35 +100,35 @@ export function Sidebar() {
       </nav>
 
       {/* Profile Section */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-            <User className="h-4 w-4 text-primary-foreground" />
+          <div className="w-10 h-10 bg-sidebar-primary rounded-full flex items-center justify-center">
+            <User className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">
               {profile?.full_name || 'Admin User'}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               {profile?.email || 'admin@spotify.com'}
             </p>
           </div>
         </div>
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 h-10 text-admin-sidebar-foreground hover:bg-admin-sidebar-hover"
+          className="w-full justify-start gap-3 h-10 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md mb-1"
           onClick={() => navigate("/profile")}
         >
           <User className="h-4 w-4" />
-          Profile
+          <span>Profile</span>
         </Button>
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 h-10 text-admin-sidebar-foreground hover:bg-admin-sidebar-hover"
+          className="w-full justify-start gap-3 h-10 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md"
           onClick={signOut}
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          <span>Logout</span>
         </Button>
       </div>
     </div>

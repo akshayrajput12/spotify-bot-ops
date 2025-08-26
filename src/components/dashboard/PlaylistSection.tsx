@@ -53,7 +53,7 @@ export function PlaylistSection() {
           <h2 className="text-2xl font-bold">Music & Rewards</h2>
           <p className="text-muted-foreground">Spotify playlist management and user engagement</p>
         </div>
-        <Button onClick={() => navigate('/playlists')}>
+        <Button onClick={() => navigate('/playlists')} className="bg-primary hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" />
           Manage Playlists
         </Button>
@@ -61,10 +61,10 @@ export function PlaylistSection() {
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
+        <Card className="bg-card border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
+              <div className="p-2 bg-primary/20 rounded-lg">
                 <Music className="h-5 w-5 text-primary" />
               </div>
               <div>
@@ -77,10 +77,10 @@ export function PlaylistSection() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-success/10 rounded-lg">
+              <div className="p-2 bg-success/20 rounded-lg">
                 <Play className="h-5 w-5 text-success" />
               </div>
               <div>
@@ -93,10 +93,10 @@ export function PlaylistSection() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-warning/10 rounded-lg">
+              <div className="p-2 bg-warning/20 rounded-lg">
                 <Clock className="h-5 w-5 text-warning" />
               </div>
               <div>
@@ -109,10 +109,10 @@ export function PlaylistSection() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-light/10 rounded-lg">
+              <div className="p-2 bg-primary-light/20 rounded-lg">
                 <Users className="h-5 w-5 text-primary-light" />
               </div>
               <div>
@@ -125,16 +125,16 @@ export function PlaylistSection() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-gradient-to-br from-primary to-primary-light border-0 shadow-md hover:shadow-lg transition-shadow">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-primary to-primary-light rounded-lg">
+              <div className="p-2 bg-white/20 rounded-lg">
                 <TrendingUp className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Points Distributed</p>
-                <p className="text-xl font-bold">
-                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (playlistStats?.pointsDistributed || 0).toLocaleString()}
+                <p className="text-sm text-white/80">Points Distributed</p>
+                <p className="text-xl font-bold text-white">
+                  {statsLoading ? <Loader2 className="h-5 w-5 animate-spin text-white" /> : (playlistStats?.pointsDistributed || 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -145,7 +145,7 @@ export function PlaylistSection() {
       {/* Top Playlists & Activity */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Top Performing Playlists */}
-        <Card>
+        <Card className="bg-card border-0 shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -161,12 +161,12 @@ export function PlaylistSection() {
                   </div>
                   <Avatar className="w-12 h-12">
                     <AvatarImage src={playlist.image_url} alt={playlist.name} />
-                    <AvatarFallback>
-                      <Music className="h-6 w-6" />
+                    <AvatarFallback className="bg-primary/10">
+                      <Music className="h-6 w-6 text-primary" />
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
-                    <h4 className="font-medium">{playlist.name}</h4>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium truncate">{playlist.name}</h4>
                     <div className="flex gap-3 text-xs text-muted-foreground">
                       <span>{playlist.listeners} listeners</span>
                       <span>{formatTime(playlist.totalTime)} played</span>
@@ -187,7 +187,7 @@ export function PlaylistSection() {
         </Card>
 
         {/* Recent Listening Activity */}
-        <Card>
+        <Card className="bg-card border-0 shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Music className="h-5 w-5" />
@@ -200,10 +200,14 @@ export function PlaylistSection() {
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : recentActivities && recentActivities.length > 0 ? (
-              recentActivities.slice(0, 4).map((activity, index) => (
+              recentActivities.slice(0, 4).map((activity: any, index: number) => (
                 <div key={index} className="flex items-center justify-between py-2">
                   <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 rounded-full bg-success" />
+                    <div className={`w-2 h-2 rounded-full ${
+                      activity.type === 'success' ? 'bg-success' : 
+                      activity.type === 'warning' ? 'bg-warning' : 
+                      activity.type === 'error' ? 'bg-destructive' : 'bg-muted-foreground'
+                    }`} />
                     <div>
                       <p className="text-sm font-medium">{activity.user}</p>
                       <p className="text-xs text-muted-foreground">
@@ -230,24 +234,24 @@ export function PlaylistSection() {
       </div>
 
       {/* Quick Actions */}
-      <Card>
+      <Card className="bg-card border-0 shadow-md">
         <CardHeader>
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Button variant="outline" className="justify-start" onClick={() => navigate('/playlists')}>
+          <Button variant="outline" className="justify-start hover:bg-primary/10" onClick={() => navigate('/playlists')}>
             <Plus className="mr-2 h-4 w-4" />
             Add New Playlist
           </Button>
-          <Button variant="outline" className="justify-start" onClick={() => navigate('/rewards/settings')}>
+          <Button variant="outline" className="justify-start hover:bg-primary/10" onClick={() => navigate('/rewards/settings')}>
             <TrendingUp className="mr-2 h-4 w-4" />
             Update Reward Settings
           </Button>
-          <Button variant="outline" className="justify-start" onClick={() => navigate('/analytics')}>
+          <Button variant="outline" className="justify-start hover:bg-primary/10" onClick={() => navigate('/analytics')}>
             <Users className="mr-2 h-4 w-4" />
             View User Analytics
           </Button>
-          <Button variant="outline" className="justify-start">
+          <Button variant="outline" className="justify-start hover:bg-primary/10">
             <Music className="mr-2 h-4 w-4" />
             Spotify Settings
           </Button>

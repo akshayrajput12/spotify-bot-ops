@@ -349,6 +349,100 @@ export class UsersService {
       throw error;
     }
   }
+
+  static async getUserById(userId: string) {
+    try {
+      // Get user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+      if (!profile) return null;
+
+      // Get user roles
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      // Get KYC documents
+      const { data: kycDocuments } = await supabase
+        .from('kyc_documents')
+        .select('*')
+        .eq('user_id', userId);
+
+      // Get user rewards
+      const { data: userRewards } = await supabase
+        .from('user_rewards')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      // Get transactions
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId);
+
+      // Get listening sessions for playtime calculation
+      const { data: listeningSessions } = await supabase
+        .from('listening_sessions')
+        .select('duration_listened, started_at')
+        .eq('user_id', userId);
+
+      // Calculate total playtime
+      const totalPlaytimeSeconds = listeningSessions?.reduce((sum, session) => 
+        sum + (session.duration_listened || 0), 0) || 0;
+      
+      const totalPlaytimeHours = Math.floor(totalPlaytimeSeconds / 3600);
+      const totalPlaytimeMinutes = Math.floor((totalPlaytimeSeconds % 3600) / 60);
+
+      // Calculate account age
+      const joinDate = new Date(profile.created_at!);
+      const currentDate = new Date();
+      const diffTime = Math.abs(currentDate.getTime() - joinDate.getTime());
+      const accountAgeMonths = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 30));
+
+      // Calculate average session time
+      const averageSessionTime = listeningSessions && listeningSessions.length > 0 
+        ? Math.round(listeningSessions.reduce((sum, session) => 
+            sum + (session.duration_listened || 0), 0) / listeningSessions.length / 60)
+        : 0;
+
+      // Calculate wallet balance
+      const walletBalance = transactions?.filter(t => t.status === 'completed')
+        .reduce((sum, txn) => sum + Number(txn.amount), 0) || 0;
+
+      // Get completed transactions count
+      const completedTransactions = transactions?.filter(t => t.status === 'completed').length || 0;
+
+      return {
+        id: profile.id,
+        name: profile.full_name || profile.email,
+        email: profile.email,
+        phone: profile.phone || "+91 XXXX-XXXX-XX",
+        location: "Mumbai, India", // This would come from user profile in a real implementation
+        joinDate: joinDate.toLocaleDateString(),
+        kycStatus: kycDocuments && kycDocuments.length > 0 ? kycDocuments[0].status : 'pending',
+        walletBalance: walletBalance,
+        totalTransactions: completedTransactions,
+        totalPoints: userRewards?.total_points || 0,
+        totalPlaytime: `${totalPlaytimeHours}h ${totalPlaytimeMinutes}m`,
+        averageSession: `${averageSessionTime} minutes`,
+        lastLogin: profile.last_login ? new Date(profile.last_login).toLocaleString() : 'Never',
+        accountAge: `${accountAgeMonths} months`,
+        spotifyConnected: !!profile.spotify_id,
+        accountType: userRoles && userRoles.length > 0 && userRoles.some(r => r.role === 'admin') ? 'Admin' : 'Premium User',
+        kycDocuments: kycDocuments || []
+      };
+    } catch (error) {
+      console.error('Error fetching user by ID:', error);
+      throw error;
+    }
+  }
 }
 
 // Transactions Service
@@ -867,12 +961,42 @@ export class PlaylistService {
         .select(`
           *,
           profiles!playlists_user_id_fkey(email, full_name),
-          playlist_tracks(track_id, tracks(name, artists))
+          playlist_tracks(
+            track_id, 
+            tracks(
+              name, 
+              artists,
+              album_name,
+              duration_ms,
+              album_image_url
+            )
+          )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Transform the data to match the expected format
+      return data?.map(playlist => ({
+        id: playlist.id,
+        spotify_id: playlist.spotify_playlist_id,
+        name: playlist.name,
+        description: playlist.description,
+        image_url: playlist.image_url || playlist.spotify_data?.images?.[0]?.url || '/placeholder.svg',
+        tracks_count: playlist.track_count || playlist.playlist_tracks?.length || 0,
+        total_duration: playlist.total_duration || 0,
+        is_active: playlist.is_public,
+        created_by: playlist.profiles?.full_name || playlist.profiles?.email || 'Unknown',
+        tracks: playlist.playlist_tracks?.map(trackItem => ({
+          id: trackItem.track_id,
+          name: trackItem.tracks?.name || 'Unknown Track',
+          artist: trackItem.tracks?.artists ? JSON.parse(trackItem.tracks.artists).join(', ') : 'Unknown Artist',
+          album: trackItem.tracks?.album_name || 'Unknown Album',
+          duration: trackItem.tracks?.duration_ms ? Math.floor(trackItem.tracks.duration_ms / 1000) : 0,
+          preview_url: trackItem.tracks?.preview_url || '',
+          image_url: trackItem.tracks?.album_image_url || '/placeholder.svg'
+        })) || []
+      })) || [];
     } catch (error) {
       console.error('Error fetching playlists:', error);
       throw error;
@@ -930,6 +1054,64 @@ export class PlaylistService {
         activeListeners: 0,
         pointsDistributed: 0
       };
+    }
+  }
+
+  static async importPlaylist(playlistData: any, userId: string) {
+    try {
+      // First, create the playlist record
+      const { data: playlist, error: playlistError } = await supabase
+        .from('playlists')
+        .insert({
+          name: playlistData.name,
+          description: playlistData.description || '',
+          image_url: playlistData.images?.[0]?.url || '/placeholder.svg',
+          track_count: playlistData.tracks?.total || 0,
+          spotify_playlist_id: playlistData.id,
+          user_id: userId,
+          is_public: true,
+          spotify_data: playlistData
+        })
+        .select()
+        .single();
+
+      if (playlistError) throw playlistError;
+
+      return playlist;
+    } catch (error) {
+      console.error('Error importing playlist:', error);
+      throw error;
+    }
+  }
+
+  static async updatePlaylistStatus(playlistId: string, isPublic: boolean) {
+    try {
+      const { data, error } = await supabase
+        .from('playlists')
+        .update({ is_public: isPublic })
+        .eq('id', playlistId)
+        .select();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating playlist status:', error);
+      throw error;
+    }
+  }
+
+  static async deletePlaylist(playlistId: string) {
+    try {
+      const { error } = await supabase
+        .from('playlists')
+        .delete()
+        .eq('id', playlistId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting playlist:', error);
+      throw error;
     }
   }
 }
