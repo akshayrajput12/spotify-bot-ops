@@ -34,8 +34,8 @@ A comprehensive admin dashboard for managing Spotify bot operations, user accoun
 5. Configure Spotify OAuth:
    - Create a new app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
    - Add redirect URIs for both development and production:
-     - Development: `http://localhost:8080/dashboard` and `http://localhost:8080/playlists`
-     - Production: `https://your-vercel-domain.vercel.app/dashboard` and `https://your-vercel-domain.vercel.app/playlists`
+     - Development: `http://localhost:8080/set-password` and `http://localhost:8080/user/dashboard`
+     - Production: `https://your-vercel-domain.vercel.app/set-password` and `https://your-vercel-domain.vercel.app/user/dashboard`
 
 6. Set up Supabase Authentication:
    - In your Supabase project, go to Authentication > Providers
@@ -53,6 +53,47 @@ npm run dev
 ```bash
 npm run build
 ```
+
+## User Roles
+
+The application supports two types of users:
+
+### Admin Users
+- Access the admin dashboard at `/dashboard`
+- Manage users, playlists, transactions, and system settings
+- Full access to all administrative features
+
+### Regular Users
+- Access the user dashboard at `/user/dashboard` after authentication
+- Complete KYC verification by uploading documents (Aadhaar Card and PAN Card only)
+- Track rewards and listening history
+- Manage account settings
+- Spotify users must set a password after first authentication
+
+## User Dashboard Features
+
+### Spotify-Themed UI
+- Dark theme with green accents matching Spotify's design language
+- Consistent styling across all components
+- Responsive sidebar navigation
+- Card-based layout with appropriate spacing
+
+### KYC Verification
+- Upload identity documents (Aadhaar Card and PAN Card only)
+- Track document verification status
+- Receive feedback on rejected documents
+- Refresh document status
+- **Document type restriction**: Once a document is approved, no further uploads of the same type are allowed
+
+### Rewards System
+- View total points earned
+- Understand how points are earned
+- Track listening time statistics
+
+### Account Management
+- Profile information display
+- Password management
+- Spotify connection status
 
 ## Deployment to Vercel
 

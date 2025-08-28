@@ -139,8 +139,8 @@ export default function Users() {
       setIsApprovalWarningOpen(true);
     } else {
       // Proceed with approval
-      const success = await updateKycStatus(userId, 'approved');
-      if (success) {
+      const result = await updateKycStatus(userId, 'approved');
+      if (result.success) {
         refetchUsers();
       }
     }
@@ -148,8 +148,8 @@ export default function Users() {
 
   const handleConfirmApproval = async () => {
     if (userToApprove) {
-      const success = await updateKycStatus(userToApprove, 'approved');
-      if (success) {
+      const result = await updateKycStatus(userToApprove, 'approved');
+      if (result.success) {
         refetchUsers();
         setIsApprovalWarningOpen(false);
         setUserToApprove(null);
@@ -158,16 +158,16 @@ export default function Users() {
   };
 
   const handleRejectKYC = async (userId: string) => {
-    const success = await updateKycStatus(userId, 'rejected', 'Manual rejection by admin');
-    if (success) {
+    const result = await updateKycStatus(userId, 'rejected', 'Manual rejection by admin');
+    if (result.success) {
       refetchUsers();
     }
   };
 
   const handleSaveUser = async (userData: any) => {
     if (selectedUser) {
-      const success = await updateUserProfile(selectedUser.id, userData);
-      if (success) {
+      const result = await updateUserProfile(selectedUser.id, userData);
+      if (result.success) {
         setIsEditModalOpen(false);
         refetchUsers();
       }

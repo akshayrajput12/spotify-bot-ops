@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Auth() {
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn, signUp, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -31,9 +31,23 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      // Check if user signed in via Spotify
+      const isSpotifyUser = user.app_metadata?.provider === 'spotify';
+      
+      if (isSpotifyUser) {
+        // Spotify users need to set a password first
+        navigate('/set-password');
+      } else {
+        // Regular users go to their dashboard
+        // Check user role to determine where to redirect
+        if (userRole?.role === 'admin') {
+          navigate('/dashboard');
+        } else {
+          navigate('/user/dashboard');
+        }
+      }
     }
-  }, [user, navigate]);
+  }, [user, userRole, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +56,7 @@ export default function Auth() {
     try {
       const { error } = await signIn(signInForm.email, signInForm.password);
       if (!error) {
-        navigate('/dashboard');
+        // After sign in, the useEffect will handle navigation based on user role
       }
     } catch (error) {
       console.error('Sign in error:', error);
@@ -87,17 +101,17 @@ export default function Auth() {
       let redirectTo;
       if (process.env.NODE_ENV === 'production') {
         if (vercelDomain) {
-          redirectTo = `https://${vercelDomain}/dashboard`;
+          redirectTo = `https://${vercelDomain}/set-password`;
         } else if (isVercel) {
           // If we're on Vercel but don't have a specific domain, use the current origin
-          redirectTo = `${window.location.origin}/dashboard`;
+          redirectTo = `${window.location.origin}/set-password`;
         } else {
           // Fallback for other production environments
-          redirectTo = `${window.location.origin}/dashboard`;
+          redirectTo = `${window.location.origin}/set-password`;
         }
       } else {
         // Development environment
-        redirectTo = `${window.location.origin}/dashboard`;
+        redirectTo = `${window.location.origin}/set-password`;
       }
         
       const { error } = await supabase.auth.signInWithOAuth({
@@ -126,52 +140,53 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="p-3 bg-primary rounded-full">
-              <Music className="w-8 h-8 text-primary-foreground" />
+            <div className="p-3 bg-green-500 rounded-full">
+              <Music className="w-8 h-8 text-black" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold">Spotify Admin</h1>
-          <p className="text-muted-foreground">Playtime Enhancer Dashboard</p>
+          <h1 className="text-3xl font-bold text-white">Spotify User</h1>
+          <p className="text-gray-400">Playtime Enhancer Dashboard</p>
         </div>
 
-        <Card>
+        <Card className="bg-gray-900 border-gray-800">
           <Tabs defaultValue="signin" className="w-full">
             <CardHeader>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-gray-800">
+                <TabsTrigger value="signin" className="data-[state=active]:bg-green-500 data-[state=active]:text-black">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" className="data-[state=active]:bg-green-500 data-[state=active]:text-black">Sign Up</TabsTrigger>
               </TabsList>
             </CardHeader>
 
             <CardContent className="space-y-4">
               <TabsContent value="signin" className="space-y-4">
                 <div className="space-y-2">
-                  <CardTitle>Welcome back</CardTitle>
-                  <CardDescription>
-                    Sign in to your admin account to manage the platform
+                  <CardTitle className="text-white">Welcome back</CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Sign in to your account to access your dashboard
                   </CardDescription>
                 </div>
 
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
+                    <Label htmlFor="signin-email" className="text-white">Email</Label>
                     <Input
                       id="signin-email"
                       type="email"
-                      placeholder="admin@spotify.com"
+                      placeholder="user@example.com"
                       value={signInForm.email}
                       onChange={(e) => setSignInForm(prev => ({ ...prev, email: e.target.value }))}
                       required
+                      className="border-gray-700 bg-gray-800 text-white"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
+                    <Label htmlFor="signin-password" className="text-white">Password</Label>
                     <div className="relative">
                       <Input
                         id="signin-password"
@@ -179,12 +194,13 @@ export default function Auth() {
                         value={signInForm.password}
                         onChange={(e) => setSignInForm(prev => ({ ...prev, password: e.target.value }))}
                         required
+                        className="border-gray-700 bg-gray-800 text-white"
                       />
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-400"
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? (
@@ -196,7 +212,11 @@ export default function Auth() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-green-500 hover:bg-green-600 text-black" 
+                    disabled={isLoading}
+                  >
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -211,15 +231,15 @@ export default function Auth() {
 
               <TabsContent value="signup" className="space-y-4">
                 <div className="space-y-2">
-                  <CardTitle>Create Account</CardTitle>
-                  <CardDescription>
-                    Create a new admin account for the platform
+                  <CardTitle className="text-white">Create Account</CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Create a new account to access the platform
                   </CardDescription>
                 </div>
 
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
+                    <Label htmlFor="signup-name" className="text-white">Full Name</Label>
                     <Input
                       id="signup-name"
                       type="text"
@@ -227,44 +247,52 @@ export default function Auth() {
                       value={signUpForm.fullName}
                       onChange={(e) => setSignUpForm(prev => ({ ...prev, fullName: e.target.value }))}
                       required
+                      className="border-gray-700 bg-gray-800 text-white"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label htmlFor="signup-email" className="text-white">Email</Label>
                     <Input
                       id="signup-email"
                       type="email"
-                      placeholder="admin@spotify.com"
+                      placeholder="user@example.com"
                       value={signUpForm.email}
                       onChange={(e) => setSignUpForm(prev => ({ ...prev, email: e.target.value }))}
                       required
+                      className="border-gray-700 bg-gray-800 text-white"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
+                    <Label htmlFor="signup-password" className="text-white">Password</Label>
                     <Input
                       id="signup-password"
                       type="password"
                       value={signUpForm.password}
                       onChange={(e) => setSignUpForm(prev => ({ ...prev, password: e.target.value }))}
                       required
+                      className="border-gray-700 bg-gray-800 text-white"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-confirm">Confirm Password</Label>
+                    <Label htmlFor="signup-confirm" className="text-white">Confirm Password</Label>
                     <Input
                       id="signup-confirm"
                       type="password"
                       value={signUpForm.confirmPassword}
                       onChange={(e) => setSignUpForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                       required
+                      className="border-gray-700 bg-gray-800 text-white"
                     />
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-green-500 hover:bg-green-600 text-black" 
+                    disabled={isLoading}
+                  >
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -279,17 +307,17 @@ export default function Auth() {
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
+                  <Separator className="w-full bg-gray-800" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">or</span>
+                  <span className="bg-gray-900 px-2 text-gray-400">or</span>
                 </div>
               </div>
 
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full border-gray-700 text-white hover:bg-gray-800"
                 onClick={handleSpotifyAuth}
               >
                 <Music className="mr-2 h-4 w-4" />
@@ -299,8 +327,8 @@ export default function Auth() {
           </Tabs>
         </Card>
 
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>Admin access required for dashboard features</p>
+        <div className="mt-6 text-center text-sm text-gray-400">
+          <p>User access to dashboard features</p>
         </div>
       </div>
     </div>

@@ -678,6 +678,8 @@ export type Database = {
         | "national_id"
         | "utility_bill"
         | "bank_statement"
+        | "aadhaar"
+        | "pan"
       kyc_status: "pending" | "approved" | "rejected" | "under_review"
       transaction_status: "pending" | "completed" | "failed" | "cancelled"
     }

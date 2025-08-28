@@ -194,6 +194,7 @@ export class UsersService {
     offset?: number;
   } = {}) {
     try {
+      console.log('UsersService.getAllUsers called with options:', options);
       let query = supabase
         .from('profiles')
         .select('*')
@@ -217,6 +218,7 @@ export class UsersService {
 
       // Get related data separately
       const userIds = data?.map(user => user.id) || [];
+      console.log('User IDs fetched:', userIds);
       
       // Get user roles
       const { data: userRoles } = await supabase
@@ -228,7 +230,10 @@ export class UsersService {
       const { data: kycDocuments } = await supabase
         .from('kyc_documents')
         .select('user_id, status')
-        .in('user_id', userIds);
+        .in('user_id', userIds)
+        .order('submitted_at', { ascending: false });
+      
+      console.log('KYC Documents fetched:', kycDocuments);
 
       // Get user rewards
       const { data: userRewards } = await supabase
@@ -244,15 +249,32 @@ export class UsersService {
         .eq('status', 'completed');
 
       // Process the data to match the expected format
-      return data?.map(user => {
+      const result = data?.map(user => {
         const userTransactions = transactions?.filter(t => t.user_id === user.id) || [];
         const walletBalance = userTransactions.reduce((sum, txn) => sum + Number(txn.amount), 0);
         
-        const kycDoc = kycDocuments?.find(doc => doc.user_id === user.id);
+        // Find the most relevant KYC document for the user
+        // Priority: approved > rejected > pending/under_review (most recent)
+        const userKycDocs = kycDocuments?.filter(doc => doc.user_id === user.id) || [];
+        let kycDoc = null;
+        
+        // First, look for an approved document
+        kycDoc = userKycDocs.find(doc => doc.status === 'approved');
+        
+        // If no approved document, look for a rejected document
+        if (!kycDoc) {
+          kycDoc = userKycDocs.find(doc => doc.status === 'rejected');
+        }
+        
+        // If no approved or rejected document, take the most recent pending/under_review document
+        if (!kycDoc && userKycDocs.length > 0) {
+          kycDoc = userKycDocs[0]; // Already ordered by submitted_at DESC
+        }
+        
         const userReward = userRewards?.find(reward => reward.user_id === user.id);
         const userRole = userRoles?.find(role => role.user_id === user.id);
         
-        return {
+        const userResult = {
           id: user.id,
           name: user.full_name || user.email,
           email: user.email,
@@ -269,7 +291,13 @@ export class UsersService {
           spotifyConnected: !!user.spotify_id,
           role: userRole?.role || 'user'
         };
+        
+        console.log(`User ${user.id} KYC status:`, kycDoc?.status || 'pending');
+        return userResult;
       }) || [];
+      
+      console.log('UsersService.getAllUsers result:', result);
+      return result;
     } catch (error) {
       console.error('Error fetching users:', error);
       throw error;
@@ -312,15 +340,47 @@ export class UsersService {
 
   static async updateUserKycStatus(userId: string, status: 'approved' | 'rejected' | 'pending', rejectionReason?: string) {
     try {
+      const currentUser = await supabase.auth.getUser();
+      
+      // First, get all KYC documents for this user ordered by submission date
+      const { data: kycDocuments, error: fetchError } = await supabase
+        .from('kyc_documents')
+        .select('id, status, submitted_at')
+        .eq('user_id', userId)
+        .order('submitted_at', { ascending: false });
+      
+      if (fetchError) throw fetchError;
+      
+      // If no documents found, throw an error
+      if (!kycDocuments || kycDocuments.length === 0) {
+        throw new Error('No KYC documents found for this user');
+      }
+      
+      // Determine which document to update based on priority:
+      // 1. Approved document (if exists)
+      // 2. Rejected document (if exists)
+      // 3. Most recent pending/under_review document
+      let documentToUpdate = kycDocuments.find(doc => doc.status === 'approved');
+      
+      if (!documentToUpdate) {
+        documentToUpdate = kycDocuments.find(doc => doc.status === 'rejected');
+      }
+      
+      if (!documentToUpdate) {
+        documentToUpdate = kycDocuments[0]; // Most recent document
+      }
+      
+      // Update the selected document
       const { data, error } = await supabase
         .from('kyc_documents')
         .update({
           status,
-          rejection_reason: rejectionReason,
+          rejection_reason: rejectionReason || null,
           reviewed_at: new Date().toISOString(),
-          reviewed_by: (await supabase.auth.getUser()).data.user?.id
+          reviewed_by: currentUser.data.user?.id,
+          updated_at: new Date().toISOString()
         })
-        .eq('user_id', userId)
+        .eq('id', documentToUpdate.id)
         .select();
 
       if (error) throw error;
@@ -331,12 +391,71 @@ export class UsersService {
     }
   }
 
-  static async updateUserProfile(userId: string, updates: Partial<Profile>) {
+  static async updateUserProfile(userId: string, updates: Record<string, any>) {
     try {
+      console.log('Updating user profile with:', { userId, updates });
+      
+      // Map camelCase property names to snake_case column names to match the database schema
+      const dbUpdates: Record<string, any> = {};
+      
+      // Define mapping from camelCase to snake_case
+      const propertyMapping: Record<string, string> = {
+        'fullName': 'full_name',
+        'phoneNumber': 'phone',
+        'dateOfBirth': 'date_of_birth',
+        'isActive': 'is_active',
+        'lastLogin': 'last_login',
+        'spotifyId': 'spotify_id',
+        'avatarUrl': 'avatar_url'
+      };
+      
+      // Define valid column names in the profiles table
+      // Note: kyc_status is not included because KYC status is stored in the kyc_documents table
+      const validColumns = new Set([
+        'full_name', 'phone', 'bio', 'timezone', 'spotify_id', 'spotify_access_token',
+        'spotify_refresh_token', 'spotify_connected_at', 'is_active', 'last_login',
+        'avatar_url', 'date_of_birth', 'occupation'
+      ]);
+      
+      // Map properties according to the mapping
+      Object.keys(updates).forEach(key => {
+        // Skip kycStatus as it should not be updated in the profiles table
+        // KYC status is stored in the kyc_documents table and should be updated through the dedicated KYC process
+        if (key === 'kycStatus') {
+          console.warn('KYC status should not be updated directly in profiles table. Use the KYC approval/rejection process instead.');
+          return;
+        }
+        
+        if (propertyMapping.hasOwnProperty(key)) {
+          const value = updates[key];
+          const columnName = propertyMapping[key];
+          // Only add defined values and valid column names to the update object
+          if (value !== undefined && validColumns.has(columnName)) {
+            dbUpdates[columnName] = value;
+          }
+        } else {
+          // Convert camelCase to snake_case for any remaining properties
+          const snakeCaseKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+          const value = updates[key];
+          // Only add defined values and valid column names to the update object
+          if (value !== undefined && validColumns.has(snakeCaseKey)) {
+            dbUpdates[snakeCaseKey] = value;
+          }
+        }
+      });
+      
+      console.log('Mapped updates:', dbUpdates);
+      
+      // Ensure we have updates to apply
+      if (Object.keys(dbUpdates).length === 0) {
+        console.warn('No valid updates to apply');
+        return [];
+      }
+      
       const { data, error } = await supabase
         .from('profiles')
         .update({
-          ...updates,
+          ...dbUpdates,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
@@ -424,7 +543,7 @@ export class UsersService {
         name: profile.full_name || profile.email,
         email: profile.email,
         phone: profile.phone || "+91 XXXX-XXXX-XX",
-        location: "Mumbai, India", // This would come from user profile in a real implementation
+        location: profile.timezone || "UTC", // Using timezone as location since there's no location column
         joinDate: joinDate.toLocaleDateString(),
         kycStatus: kycDocuments && kycDocuments.length > 0 ? kycDocuments[0].status : 'pending',
         walletBalance: walletBalance,
@@ -1274,24 +1393,64 @@ export class KYCService {
     }
   }
 
-  static async updateKYCStatus(
-    kycId: string, 
-    status: 'approved' | 'rejected' | 'pending' | 'under_review',
-    rejectionReason?: string
-  ) {
+  static async updateUserKycStatus(userId: string, status: 'approved' | 'rejected' | 'pending', rejectionReason?: string, skipDocumentValidation: boolean = false) {
     try {
       const currentUser = await supabase.auth.getUser();
       
+      // First, get all KYC documents for this user ordered by submission date
+      const { data: kycDocuments, error: fetchError } = await supabase
+        .from('kyc_documents')
+        .select('id, status, submitted_at, document_type')
+        .eq('user_id', userId)
+        .order('submitted_at', { ascending: false });
+      
+      if (fetchError) throw fetchError;
+      
+      // If no documents found, throw an error
+      if (!kycDocuments || kycDocuments.length === 0) {
+        throw new Error('No KYC documents found for this user');
+      }
+      
+      // Validate required documents (Aadhaar and PAN) before approving
+      if (status === 'approved' && !skipDocumentValidation) {
+        const documentTypes = kycDocuments.map(doc => doc.document_type);
+        const hasAadhaar = documentTypes.includes('aadhaar');
+        const hasPAN = documentTypes.includes('pan');
+        
+        if (!hasAadhaar || !hasPAN) {
+          const missingDocs = [];
+          if (!hasAadhaar) missingDocs.push('Aadhaar');
+          if (!hasPAN) missingDocs.push('PAN');
+          
+          throw new Error(`Cannot approve KYC: Missing required documents - ${missingDocs.join(' and ')}.`);
+        }
+      }
+      
+      // Determine which document to update based on priority:
+      // 1. Approved document (if exists)
+      // 2. Rejected document (if exists)
+      // 3. Most recent pending/under_review document
+      let documentToUpdate = kycDocuments.find(doc => doc.status === 'approved');
+      
+      if (!documentToUpdate) {
+        documentToUpdate = kycDocuments.find(doc => doc.status === 'rejected');
+      }
+      
+      if (!documentToUpdate) {
+        documentToUpdate = kycDocuments[0]; // Most recent document
+      }
+      
+      // Update the selected document
       const { data, error } = await supabase
         .from('kyc_documents')
         .update({
           status,
           rejection_reason: rejectionReason || null,
-          reviewed_at: status !== 'pending' ? new Date().toISOString() : null,
-          reviewed_by: status !== 'pending' ? currentUser.data.user?.id : null,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: currentUser.data.user?.id,
           updated_at: new Date().toISOString()
         })
-        .eq('id', kycId)
+        .eq('id', documentToUpdate.id)
         .select();
 
       if (error) throw error;

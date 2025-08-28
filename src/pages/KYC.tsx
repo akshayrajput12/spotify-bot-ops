@@ -24,6 +24,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { 
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { 
   Search, 
   Filter, 
   Download, 
@@ -45,8 +49,10 @@ import {
   useKYCStats,
   useKYCActions,
   useSearchAndFilter,
-  usePagination
+  usePagination,
+  useUsers
 } from "@/hooks/useDatabase";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function KYC() {
   const { toast } = useToast();
@@ -68,8 +74,49 @@ export default function KYC() {
     offset
   });
   
+  // Add user data fetching to refresh user data when KYC status changes
+  const { refetch: refetchUsers } = useUsers({});
+  
   const { data: kycStats, loading: statsLoading } = useKYCStats();
-  const { updateKYCStatus, approveKYC, rejectKYC, loading: actionLoading } = useKYCActions();
+  const { updateKYCStatus, approveKYC, rejectKYC, loading: actionLoading } = useKYCActions(refetchUsers);
+
+  // Add state for approval warning dialog
+  const [isApprovalWarningOpen, setIsApprovalWarningOpen] = useState(false);
+  const [kycToApprove, setKycToApprove] = useState<any>(null);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+
+  // Function to check if user has required documents
+  const checkUserDocuments = async (userId: string) => {
+    try {
+      setDocumentsLoading(true);
+      const { data, error } = await supabase
+        .from('kyc_documents')
+        .select('*')
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      setDocuments(data || []);
+      
+      // Check if user has both Aadhaar and PAN documents
+      // Note: These document types were added via migration, so they should be available
+      const hasAadhaar = data?.some(doc => doc.document_type === 'aadhaar');
+      const hasPAN = data?.some(doc => doc.document_type === 'pan');
+      
+      return hasAadhaar && hasPAN;
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check user documents",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setDocumentsLoading(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -91,19 +138,59 @@ export default function KYC() {
     setIsDetailsModalOpen(true);
   };
 
-  const handleApproveKYC = async (kycId: string) => {
-    const success = await approveKYC(kycId);
-    if (success) {
-      refetchKYC();
+  const handleApproveKYC = async (kyc: any) => {
+    const hasRequiredDocuments = await checkUserDocuments(kyc.userId);
+    
+    if (!hasRequiredDocuments) {
+      // Show warning popup
+      setKycToApprove(kyc);
+      setIsApprovalWarningOpen(true);
+    } else {
+      // Proceed with approval
+      console.log('handleApproveKYC called with kycId:', kyc.id);
+      const success = await approveKYC(kyc.id);
+      console.log('approveKYC result:', success);
+      if (success) {
+        refetchKYC();
+        // Also refresh user stats to ensure consistency
+        if (refetchUsers) {
+          console.log('Calling refetchUsers after KYC approval');
+          refetchUsers();
+        }
+      }
+      return success;
+    }
+  };
+
+  // Add function to handle approval with override
+  const handleConfirmApproval = async () => {
+    if (kycToApprove) {
+      const success = await approveKYC(kycToApprove.id, true); // Skip document validation
+      if (success) {
+        refetchKYC();
+        if (refetchUsers) {
+          refetchUsers();
+        }
+        setIsApprovalWarningOpen(false);
+        setKycToApprove(null);
+      }
     }
   };
 
   const handleRejectKYC = async (kycId: string) => {
+    console.log('handleRejectKYC called with kycId:', kycId, 'reason:', rejectionReason);
     const success = await rejectKYC(kycId, rejectionReason);
+    console.log('rejectKYC result:', success);
     if (success) {
       setRejectionReason("");
       refetchKYC();
+      // Also refresh user stats to ensure consistency
+      if (refetchUsers) {
+        console.log('Calling refetchUsers after KYC rejection');
+        refetchUsers();
+      }
     }
+    return success;
   };
 
   const handleImageView = (imageUrl: string) => {
@@ -293,9 +380,11 @@ export default function KYC() {
                                   variant="ghost" 
                                   size="icon" 
                                   className="text-success hover:bg-success/10"
-                                  onClick={() => handleApproveKYC(kyc.id)}
+                                  onClick={async () => {
+                                    await handleApproveKYC(kyc);
+                                  }}
                                   title="Approve KYC"
-                                  disabled={actionLoading}
+                                  disabled={actionLoading || documentsLoading}
                                 >
                                   <Check className="h-4 w-4" />
                                 </Button>
@@ -303,7 +392,12 @@ export default function KYC() {
                                   variant="ghost" 
                                   size="icon" 
                                   className="text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleRejectKYC(kyc.id)}
+                                  onClick={async () => {
+                                    const success = await handleRejectKYC(kyc.id);
+                                    if (success) {
+                                      // The refetchKYC() and setRejectionReason("") are called in handleRejectKYC
+                                    }
+                                  }}
                                   title="Reject KYC"
                                   disabled={actionLoading}
                                 >
@@ -499,26 +593,59 @@ export default function KYC() {
                     <div className="flex gap-4">
                       <Button 
                         className="flex-1"
-                        onClick={() => {
-                          handleApproveKYC(selectedKYC.id);
-                          setIsDetailsModalOpen(false);
+                        onClick={async () => {
+                          const hasRequiredDocuments = await checkUserDocuments(selectedKYC.userId);
+                          
+                          if (!hasRequiredDocuments) {
+                            setKycToApprove(selectedKYC);
+                            setIsApprovalWarningOpen(true);
+                          } else {
+                            const success = await approveKYC(selectedKYC.id);
+                            if (success) {
+                              setIsDetailsModalOpen(false);
+                              refetchKYC();
+                              if (refetchUsers) {
+                                refetchUsers();
+                              }
+                            }
+                          }
                         }}
-                        disabled={actionLoading}
+                        disabled={actionLoading || documentsLoading}
                       >
-                        <Check className="mr-2 h-4 w-4" />
-                        Approve KYC
+                        {actionLoading || documentsLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Approving...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Approve KYC
+                          </>
+                        )}
                       </Button>
                       <Button 
                         variant="destructive"
                         className="flex-1"
-                        onClick={() => {
-                          handleRejectKYC(selectedKYC.id);
-                          setIsDetailsModalOpen(false);
+                        onClick={async () => {
+                          const success = await handleRejectKYC(selectedKYC.id);
+                          if (success) {
+                            setIsDetailsModalOpen(false);
+                          }
                         }}
                         disabled={actionLoading || !rejectionReason.trim()}
                       >
-                        <X className="mr-2 h-4 w-4" />
-                        Reject KYC
+                        {actionLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Rejecting...
+                          </>
+                        ) : (
+                          <>
+                            <X className="mr-2 h-4 w-4" />
+                            Reject KYC
+                          </>
+                        )}
                       </Button>
                     </div>
                     <div className="space-y-2">
@@ -551,6 +678,32 @@ export default function KYC() {
               className="max-w-full max-h-[70vh] object-contain rounded-lg border"
             />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Warning Dialog */}
+      <Dialog open={isApprovalWarningOpen} onOpenChange={setIsApprovalWarningOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Warning: Required Documents Missing
+            </DialogTitle>
+            <DialogDescription>
+              This user has not uploaded both Aadhaar and PAN documents. Approving their KYC without these required documents may pose security risks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to approve this user's KYC without verifying their required documents?
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsApprovalWarningOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmApproval}>Approve Anyway</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AdminLayout>

@@ -18,6 +18,8 @@ import CMS from "./pages/CMS";
 import Profile from "./pages/Profile";
 import UserDetail from "./pages/UserDetail";
 import NotFound from "./pages/NotFound";
+import UserDashboard from "./pages/UserDashboard";
+import SetPassword from "./pages/SetPassword";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +33,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Auth />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/set-password" element={<SetPassword />} />
             <Route 
               path="/dashboard" 
               element={
@@ -124,6 +127,15 @@ const App = () => (
               element={
                 <ProtectedRoute requireAdmin>
                   <Profile />
+                </ProtectedRoute>
+              } 
+            />
+            {/* User Dashboard Routes */}
+            <Route 
+              path="/user/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <UserDashboard />
                 </ProtectedRoute>
               } 
             />

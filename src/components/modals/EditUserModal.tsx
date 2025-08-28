@@ -34,13 +34,14 @@ export function EditUserModal({ isOpen, onClose, user, onSave }: EditUserModalPr
     phone: user.phone || "",
     location: user.location || "",
     walletBalance: user.walletBalance,
-    kycStatus: user.kycStatus,
     isActive: user.isActive ?? true,
     notes: ""
   });
 
   const handleSave = () => {
+    // Save profile data (KYC status is not included as it should not be updated directly)
     onSave(formData);
+    
     toast({
       title: "User Updated",
       description: `${user.name}'s profile has been successfully updated.`,
@@ -136,17 +137,13 @@ export function EditUserModal({ isOpen, onClose, user, onSave }: EditUserModalPr
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="kycStatus">KYC Status</Label>
-                <Select value={formData.kycStatus} onValueChange={(value) => handleInputChange("kycStatus", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select KYC status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending Review</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>KYC Status</Label>
+                <div className="p-3 bg-muted rounded-md">
+                  <span className="font-medium">{user.kycStatus}</span>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    KYC status must be updated through the dedicated approval/rejection process.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>

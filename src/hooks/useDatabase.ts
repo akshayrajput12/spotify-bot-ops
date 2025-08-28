@@ -92,19 +92,20 @@ export function useUserActions() {
   ) => {
     try {
       setLoading(true);
-      await UsersService.updateUserKycStatus(userId, status, rejectionReason);
+      const result = await UsersService.updateUserKycStatus(userId, status, rejectionReason);
       toast({
         title: 'Success',
         description: `KYC status updated to ${status}`,
       });
-      return true;
-    } catch (error) {
+      return { success: true, data: result };
+    } catch (error: any) {
+      console.error('Error in updateKycStatus hook:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update KYC status',
+        description: error.message || 'Failed to update KYC status',
         variant: 'destructive'
       });
-      return false;
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
@@ -113,19 +114,30 @@ export function useUserActions() {
   const updateUserProfile = async (userId: string, updates: any) => {
     try {
       setLoading(true);
-      await UsersService.updateUserProfile(userId, updates);
-      toast({
-        title: 'Success',
-        description: 'User profile updated successfully',
-      });
-      return true;
-    } catch (error) {
+      const result = await UsersService.updateUserProfile(userId, updates);
+      
+      // Check if there were any updates applied
+      if (result && Array.isArray(result)) {
+        toast({
+          title: 'Success',
+          description: 'User profile updated successfully',
+        });
+        return { success: true, data: result };
+      } else {
+        toast({
+          title: 'Info',
+          description: 'No changes were made to the profile',
+        });
+        return { success: true, data: [] };
+      }
+    } catch (error: any) {
+      console.error('Error in updateUserProfile hook:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update user profile',
+        description: error.message || 'Failed to update user profile',
         variant: 'destructive'
       });
-      return false;
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
@@ -503,27 +515,48 @@ export function useKYCStats() {
   return useAsyncOperation(() => KYCService.getKYCStats());
 }
 
-export function useKYCActions() {
+export function useKYCActions(refetchUsers?: () => void) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   const updateKYCStatus = async (
     kycId: string, 
-    status: 'approved' | 'rejected' | 'pending' | 'under_review',
-    rejectionReason?: string
+    status: 'approved' | 'rejected' | 'pending',
+    rejectionReason?: string,
+    skipDocumentValidation: boolean = false
   ) => {
     try {
+      console.log('useKYCActions.updateKYCStatus called with:', { kycId, status, rejectionReason, skipDocumentValidation });
       setLoading(true);
-      await KYCService.updateKYCStatus(kycId, status, rejectionReason);
-      toast({
-        title: 'Success',
-        description: `KYC status updated to ${status}`,
-      });
-      return true;
+      const result = await KYCService.updateUserKycStatus(kycId, status, rejectionReason, skipDocumentValidation);
+      
+      // Check if the update was successful
+      if (result && result.length > 0) {
+        toast({
+          title: 'Success',
+          description: `KYC status updated to ${status}`,
+        });
+        
+        // If a refetchUsers function is provided, call it to refresh user data
+        if (refetchUsers) {
+          console.log('Calling refetchUsers to refresh user data');
+          refetchUsers();
+        }
+        
+        return true;
+      } else {
+        toast({
+          title: 'Warning',
+          description: 'No KYC document was updated',
+          variant: 'destructive'
+        });
+        return false;
+      }
     } catch (error) {
+      console.error('Error updating KYC status:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update KYC status',
+        description: 'Failed to update KYC status: ' + (error as Error).message,
         variant: 'destructive'
       });
       return false;
@@ -532,8 +565,8 @@ export function useKYCActions() {
     }
   };
 
-  const approveKYC = async (kycId: string) => {
-    return updateKYCStatus(kycId, 'approved');
+  const approveKYC = async (kycId: string, skipDocumentValidation: boolean = false) => {
+    return updateKYCStatus(kycId, 'approved', undefined, skipDocumentValidation);
   };
 
   const rejectKYC = async (kycId: string, reason: string) => {

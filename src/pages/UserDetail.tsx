@@ -30,6 +30,30 @@ import {
 import { UsersService } from "@/lib/database";
 import { supabase } from "@/integrations/supabase/client";
 
+// Valid document types according to database enum
+const VALID_DOCUMENT_TYPES = [
+  'passport',
+  'drivers_license',
+  'national_id',
+  'utility_bill',
+  'bank_statement',
+  'aadhaar',
+  'pan'
+] as const;
+
+type DocumentType = typeof VALID_DOCUMENT_TYPES[number];
+
+// Map user-friendly names to database enum values
+const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
+  'passport': 'Passport',
+  'drivers_license': 'Driver\'s License',
+  'national_id': 'National ID',
+  'utility_bill': 'Utility Bill',
+  'bank_statement': 'Bank Statement',
+  'aadhaar': 'Aadhaar',
+  'pan': 'PAN'
+};
+
 export default function UserDetail() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -66,10 +90,10 @@ export default function UserDetail() {
       setUser(mockUser);
       setLoading(false);
       
-      // Mock documents for demonstration
+      // Mock documents for demonstration using valid enum values
       setDocuments([
-        { id: 1, type: "aadhaar", document_url: "/placeholder.svg", file_name: "Aadhaar Card" },
-        { id: 2, type: "pan", document_url: "/placeholder.svg", file_name: "PAN Card" }
+        { id: 1, document_type: "national_id", document_url: "/placeholder.svg", file_name: "National ID" },
+        { id: 2, document_type: "passport", document_url: "/placeholder.svg", file_name: "Passport" }
       ]);
     } else {
       // Use the user ID from params
@@ -132,11 +156,11 @@ export default function UserDetail() {
       
       setDocuments(data || []);
       
-      // Check if user has both Aadhaar and PAN documents
-      const hasAadhaar = data?.some(doc => doc.document_type === 'aadhaar');
-      const hasPAN = data?.some(doc => doc.document_type === 'pan');
+      // Check if user has required documents (using valid enum values)
+      const hasNationalId = data?.some(doc => doc.document_type === 'national_id');
+      const hasPassport = data?.some(doc => doc.document_type === 'passport');
       
-      return { hasAadhaar, hasPAN, documents: data || [] };
+      return { hasNationalId, hasPassport, documents: data || [] };
     } catch (error) {
       console.error('Error fetching documents:', error);
       toast({
@@ -144,7 +168,7 @@ export default function UserDetail() {
         description: "Failed to check user documents",
         variant: "destructive"
       });
-      return { hasAadhaar: false, hasPAN: false, documents: [] };
+      return { hasNationalId: false, hasPassport: false, documents: [] };
     } finally {
       setDocumentLoading(false);
     }
@@ -169,6 +193,43 @@ export default function UserDetail() {
         variant: "destructive"
       });
     }
+  };
+
+  // Function to get document by type
+  const getDocumentByType = (type: string) => {
+    return documents.find(doc => doc.document_type === type);
+  };
+
+  // Function to render document view section
+  const renderDocumentView = (document: any, title: string) => {
+    if (!document) {
+      return (
+        <div className="border-2 border-dashed rounded-lg p-8 text-center">
+          <FileImage className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No {title} uploaded</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="border rounded-lg p-4 text-center">
+        <div className="mb-2">
+          <FileImage className="h-12 w-12 text-muted-foreground mx-auto" />
+        </div>
+        <Button 
+          onClick={() => handleViewDocument(document)}
+          variant="outline"
+          size="sm"
+          className="w-full"
+        >
+          <Eye className="h-4 w-4 mr-2" />
+          View {title}
+        </Button>
+        <p className="text-xs text-muted-foreground mt-2 truncate">
+          {document.file_name || 'Document'}
+        </p>
+      </div>
+    );
   };
 
   const handleDownloadAll = async () => {
@@ -269,11 +330,6 @@ export default function UserDetail() {
               <p className="text-muted-foreground">Detailed information for {user.name}</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </div>
         </div>
 
         {/* User Profile Header */}
@@ -289,10 +345,6 @@ export default function UserDetail() {
                   <div>
                     <h2 className="text-2xl font-bold">{user.name}</h2>
                     <p className="text-muted-foreground">User ID: {user.id}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button>Edit Profile</Button>
-                    <Button variant="outline">Send Message</Button>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -369,42 +421,64 @@ export default function UserDetail() {
                 <Badge variant="outline">{user.accountType}</Badge>
               </div>
               <Separator />
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">KYC Documents</h4>
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium">Uploaded Documents</h4>
                 {documentLoading ? (
                   <div className="flex items-center justify-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                   </div>
-                ) : documents.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="flex gap-2 flex-wrap">
-                      {documents.map((document) => (
-                        <Button 
-                          key={document.id} 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleViewDocument(document)}
-                          className="flex items-center gap-1"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View {document.document_type?.replace('_', ' ') || 'Document'}
-                        </Button>
-                      ))}
+                ) : (
+                  <div className="space-y-6">
+                    {/* Aadhaar Documents */}
+                    <div>
+                      <h5 className="text-sm font-medium mb-2">Aadhaar Card</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {renderDocumentView(getDocumentByType('aadhaar'), 'Aadhaar')}
+                        <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                          <FileImage className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No Aadhaar Back uploaded</p>
+                        </div>
+                        <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                          <FileImage className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No Aadhaar Selfie uploaded</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* PAN Documents */}
+                    <div>
+                      <h5 className="text-sm font-medium mb-2">PAN Card</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {renderDocumentView(getDocumentByType('pan'), 'PAN')}
+                        <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                          <FileImage className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No PAN Back uploaded</p>
+                        </div>
+                        <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                          <FileImage className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">No PAN Selfie uploaded</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4 text-center">
+                      <div className="mb-2">
+                        <FileImage className="h-12 w-12 text-muted-foreground mx-auto" />
+                      </div>
                       <Button 
                         variant="outline" 
                         size="sm" 
+                        className="w-full"
                         onClick={handleDownloadAll}
-                        className="flex items-center gap-1"
+                        disabled={documents.length === 0}
                       >
-                        <Download className="h-4 w-4" />
+                        <Download className="h-4 w-4 mr-2" />
                         Download All
                       </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        All Documents
+                      </p>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-muted-foreground py-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <span className="text-sm">No documents uploaded yet</span>
                   </div>
                 )}
               </div>
